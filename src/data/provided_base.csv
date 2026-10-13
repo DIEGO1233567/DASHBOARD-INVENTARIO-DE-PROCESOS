@@ -1,0 +1,447 @@
+Area / Sub Area,TIPO DE PROCESO,PROCESO MACRO,ACTIVIDAD / PROCESO,FRECUENCIA,PUESTO,REPONSABLE FUNCIONAL,¿DIGITALIZADO?,¿ES AUTOMATIZABLE?,HERRAMIENTA,% AUTOMATIZADO,Horas mensuales Actividad (Total),Horas mensuales Automatizadas (Total),Horas manuales (Total)
+ARCHIVO GRAL,OPERATIVO,Reportes,"Reportes, Cifras Control y pruebas globales",Semanal,Especialista,Ismael Enrique Godinez,NO,SI,N/A,0%,20,0,20
+ARCHIVO GRAL,OPERATIVO,Resguardo de Información,Validar información recibida,Diaria,Especialista,Ismael Enrique Godinez,NO,NO,N/A,0%,80,0,80
+ARCHIVO GRAL,OPERATIVO,Resguardo de Información,Analizar y depurar información,Diaria,Especialista,Ismael Enrique Godinez,NO,NO,N/A,0%,20,0,20
+ARCHIVO GRAL,SEGUIMIENTO / GESTIÓN,Otra operación,"Otras actividades Operativas
+-Revisión de Correos
+-Seguimiento a Incidencias
+-Atención Usuarios
+-Generación de Reportes de control
+-Reuniones",Diaria,Especialista,Ismael Enrique Godinez,NO,NO,N/A,0%,40,0,40
+ARCHIVO GRAL,OPERATIVO,Resguardo de Información,Validar información recibida,Diaria,Asistente Administrativo,Luis Angel Nava,NO,NO,N/A,0%,100,0,100
+ARCHIVO GRAL,OPERATIVO,Resguardo de Información,Analizar y depurar información,Diaria,Asistente Administrativo,Luis Angel Nava,NO,NO,N/A,0%,40,0,40
+ARCHIVO GRAL,SEGUIMIENTO / GESTIÓN,Otra operación,"Otras actividades Operativas
+-Revisión de Correos
+-Atención Usuarios",Diaria,Asistente Administrativo,Luis Angel Nava,NO,NO,N/A,0%,20,0,20
+ARCHIVO GRAL,OPERATIVO,Resguardo de Información,Validar información recibida,Diaria,Asistente Administrativo,Miguel Angel Baez,NO,NO,N/A,0%,100,0,100
+ARCHIVO GRAL,OPERATIVO,Resguardo de Información,Analizar y depurar información,Diaria,Asistente Administrativo,Miguel Angel Baez,NO,NO,N/A,0%,40,0,40
+ARCHIVO GRAL,SEGUIMIENTO / GESTIÓN,Otra operación,"Otras actividades Operativas
+-Revisión de Correos
+-Atención Usuarios",Diaria,Asistente Administrativo,Miguel Angel Baez,NO,NO,N/A,0%,20,0,20
+Control Interno ,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Especialista,Susana Espinosa,NO,NO,N/A,0%,35,0,35
+Control Interno ,OPERATIVO,Contabilizaciones,Afectación al margen ZCBON,Quincenal,Especialista,Susana Espinosa,SI,SI,TERCERO,90%,37,33.3,3.7
+Control Interno ,OPERATIVO,Otra operación CXP,Confirmacion de Saldos,Mensual,Especialista,Susana Espinosa,SI,SI,TERCERO,100%,1.5,1.5,0
+Control Interno ,OPERATIVO,Depuración de Ctas,"Data Estudio Saldos Deudores Mercaderias Liverpool & Suburbia (actualizacion y seguimiento)
+- Revision de partidas mayores a 180 dias
+- Pagos Minimos
+- Sesiones con compras
+- Reporte de bonificaciones mal generadas
+- Castigo al Margen""",Quincenal,Especialista,Susana Espinosa,SI,SI,TERCERO,10%,70,7,63
+Control Interno ,OPERATIVO,KPI y Reportes,CXP-NAC-Factoraje,Mensual,Especialista,Susana Espinosa,NO,SI,N/A,0%,4,0,4
+Control Interno ,OPERATIVO,KPI y Reportes,Reporte de Letras Operadas Nuevo Factoraje,Mensual,Especialista,Susana Espinosa,NO,SI,N/A,0%,4,0,4
+Control Interno ,OPERATIVO,Depuración de Ctas,Compensacion Cta Liverpool - 22980017 ,Diaria,Jefe,Norma Hernandez,SI,SI,TERCERO,100%,14,14,0
+Control Interno ,OPERATIVO,Validaciones,Validación reporte previo afectar al margen,Mensual,Jefe,Norma Hernandez,NO,NO,N/A,0%,1,0,1
+Control Interno ,OPERATIVO,Depuración de Ctas,Compensacion Cta Suburbia - 22980017,Diaria,Jefe,Norma Hernandez,SI,SI,TERCERO,100%,14,14,0
+Control Interno ,OPERATIVO,Depuración de Ctas,Compensacion Cta Liverpool - 22980017 ,Diaria,Jefe,Norma Hernandez,NO,SI,N/A,0%,6,0,6
+Control Interno ,OPERATIVO,Depuración de Ctas,Compensacion Cta Suburbia - 22980017,Diaria,Jefe,Norma Hernandez,NO,SI,N/A,0%,6,0,6
+Coordinación,OPERATIVO,Depuración de Ctas,Compensacion Cta  Liverpool - 13600003 ,Diaria,Coordinador,Gabriela Padrón,SI,SI,TERCERO,100%,10,10,0
+Coordinación,OPERATIVO,Depuración de Ctas,Compensacion Cta  Liverpool - 13600003 ,Diaria,Coordinador,Gabriela Padrón,NO,SI,N/A,0%,2,0,2
+Coordinación,OPERATIVO,Depuración de Ctas,Compensacion Cta  Liverpool - 13600007,Diaria,Coordinador,Gabriela Padrón,SI,SI,TERCERO,100%,10,10,0
+Coordinación,OPERATIVO,Depuración de Ctas,Compensacion Cta  Liverpool - 13600007,Diaria,Coordinador,Gabriela Padrón,NO,SI,N/A,0%,2,0,2
+Coordinación,OPERATIVO,Depuración de Ctas,Compensacion Cta  Liverpool - 13600010,Diaria,Coordinador,Gabriela Padrón,SI,SI,TERCERO,100%,10,10,0
+Coordinación,OPERATIVO,Depuración de Ctas,Compensacion Cta  Liverpool - 13600010,Diaria,Coordinador,Gabriela Padrón,NO,SI,N/A,0%,2,0,2
+Coordinación,OPERATIVO,Depuración de Ctas,Compensacion Cta  Liverpool - 13600001,Diaria,Coordinador,Gabriela Padrón,SI,SI,TERCERO,100%,10,10,0
+Coordinación,OPERATIVO,Depuración de Ctas,Compensacion Cta  Liverpool - 13600001,Diaria,Coordinador,Gabriela Padrón,NO,SI,N/A,0%,2,0,2
+Coordinación,OPERATIVO,Depuración de Ctas,Compensacion Cta Suburbia - 23600003 ,Diaria,Coordinador,Gabriela Padrón,SI,SI,TERCERO,100%,10,10,0
+Coordinación,OPERATIVO,Depuración de Ctas,Compensacion Cta Suburbia - 23600003 ,Diaria,Coordinador,Gabriela Padrón,NO,SI,N/A,0%,2,0,2
+Coordinación,OPERATIVO,Depuración de Ctas,Reporte de partidas compensadas de Ctas de Mayor ,Diaria,Coordinador,Gabriela Padrón,NO,SI,N/A,0%,4,0,4
+Coordinación,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Coordinador,Gabriela Padrón,NO,NO,N/A,0%,55,0,55
+Coordinación,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Checkpoint Control Interno CXP,Diaria,Coordinador,Gabriela Padrón,NO,NO,N/A,0%,2,0,2
+Coordinación,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Actividades Extraordinarios  (Gerencias / Subdireccion),Diaria,Coordinador,Gabriela Padrón,NO,NO,N/A,0%,22,0,22
+Coordinación,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Soporte y revision alto nivel del Equipo de CXP,Diaria,Coordinador,Gabriela Padrón,NO,NO,N/A,0%,35,0,35
+Coordinación,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Sesiones con usuarios internos,Diaria,Coordinador,Gabriela Padrón,NO,NO,N/A,0%,45,0,45
+Coordinación,OPERATIVO,KPI y Reportes,Actualizacion de Drive de Ticket´s,Semanal,Coordinador,Gabriela Padrón,NO,SI,N/A,0%,2,0,2
+Coordinación,OPERATIVO,KPI y Reportes,Actualización Drive_Indicadores de efectividad,Mensual,Coordinador,Gabriela Padrón,NO,NO,N/A,0%,4,0,4
+Coordinación,OPERATIVO,KPI y Reportes,Actualizacion Data Studio_Highlights,Mensual,Coordinador,Gabriela Padrón,NO,SI,N/A,0%,6,0,6
+Coordinación,OPERATIVO,KPI y Reportes,Actualizacion Data Studio_Highlights,Mensual,Coordinador,David Cruz,NO,SI,N/A,0%,4,0,4
+Coordinación,OPERATIVO,Liquidación de Viajes,Validación y revisión del proceso de GDV,Diaria,Coordinador,David Cruz,NO,NO,N/A,0%,10,0,10
+Coordinación,OPERATIVO,KPI y Reportes,Reportes Semanales y cierre mensual Procesos GDV,Mensual,Coordinador,David Cruz,NO,SI,N/A,0%,20,0,20
+Coordinación,OPERATIVO,Contabilizaciones,Validación y Revisión de los procesos contables de CXP Importaciones,Diaria,Coordinador,David Cruz,NO,NO,N/A,0%,10,0,10
+Coordinación,OPERATIVO,KPI y Reportes,Reportes Semanales y cierre mensual Procesos CXP Importaciones,Mensual,Coordinador,David Cruz,NO,SI,N/A,0%,20,0,20
+Coordinación,OPERATIVO,Ligado REPs y notas de credito,Validación y Revisión de los procesos de REP´s,Diaria,Coordinador,David Cruz,NO,NO,N/A,0%,10,0,10
+Coordinación,OPERATIVO,KPI y Reportes,Reportes Semanales y cierre mensual Procesos Archivo Gral,Mensual,Coordinador,David Cruz,NO,SI,N/A,0%,20,0,20
+Coordinación,OPERATIVO,Politicas y Procedimientos,"Revisión manuales, politicas , procedimientos",Mensual,Coordinador,David Cruz,NO,NO,N/A,0%,8,0,8
+Coordinación,SEGUIMIENTO / GESTIÓN,Iniciativas y proyectos,"Proyectos e Iniciativas
+-Generación de ERF´s
+-Participación en Pruebas
+-Automatizaciones (Dalis,Macros, DIPS)",Semanal,Coordinador,David Cruz,NO,NO,N/A,0%,20,0,20
+Coordinación,SEGUIMIENTO / GESTIÓN,Otra operación CXP,"Otras actividades Operativas
+-Revisión de Correos
+-Seguimiento a Incidencias
+-Atención Usuarios
+-Generación de Reportes de control
+-Seguimiento a Saldos deudores 
+-Capacitaciones 
+-Reuniones
+-Comites",Diaria,Coordinador,David Cruz,NO,SI,N/A,0%,70,0,70
+CxC,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Jefe Sr.,Cruz Magdalena Sánchez,NO,NO,N/A,0%,20,0,20
+CxC,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Especialista,Gabriela Solis,NO,NO,N/A,0%,50,0,50
+CxC,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Especialista,Karla Cuadros,NO,NO,N/A,0%,45,0,45
+CxC,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Especialista,Ma del Carmen Zapata,NO,NO,N/A,0%,45,0,45
+CxC,OPERATIVO,Otra operación CXP,Actualización Dashboard Proveedores Domiciliados (automático),Semanal,Especialista,Ma del Carmen Zapata,SI,SI,TERCERO,80%,35,28,7
+CxC,OPERATIVO,Otra operación CXP,Actualización Dashboard REP y XML,Mensual,Especialista,Karla Cuadros,NO,SI,N/A,0%,4,0,4
+CxC,OPERATIVO,KPI y Reportes,Actualización Dashboard Saldos Deudores Servicios,Semanal,Especialista,Gabriela Solis,SI,SI,DALI,70%,28.5,19.95,8.55
+CxC,OPERATIVO,KPI y Reportes,Actualizacion Historica de Saldos (Mes cerrado),Mensual,Especialista,Gabriela Solis,NO,SI,N/A,0%,3,0,3
+CXC,OPERATIVO,Otra operación CXP,Actualización plan de domiciliación,Semanal,Especialista,Ma del Carmen Zapata,SI,SI,N/A,100%,0.5,0.5,0
+CxC,OPERATIVO,Otra operación CXP,"Atencion a Ticket ""Entrada Unica""",Diaria,Especialista,Gabriela Solis,NO,NO,N/A,0%,6,0,6
+CxC,OPERATIVO,Otra operación CXP,"Atencion a Ticket ""Entrada Unica""",Diaria,Especialista,Karla Cuadros,NO,NO,N/A,0%,8,0,8
+CxC,OPERATIVO,Otra operación CXP,"Atencion a Ticket ""Entrada Unica""",Diaria,Especialista,Ma del Carmen Zapata,NO,NO,N/A,0%,8,0,8
+CxC,OPERATIVO,Otra operación CXP,Capacitación con proveedores  - Foros de CXC,Quincenal,Especialista,Gabriela Solis,NO,NO,N/A,0%,3,0,3
+CxC,OPERATIVO,Otra operación CXP,Capacitación con proveedores  - Foros de CXC,Quincenal,Especialista,Karla Cuadros,NO,NO,N/A,0%,3,0,3
+CxC,OPERATIVO,Otra operación CXP,Capacitación con proveedores - Domiciliación,Semanal,Especialista,Ma del Carmen Zapata,NO,NO,N/A,0%,8,0,8
+CXC,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Checkpoint Control Interno CXP,Diaria,Jefe Sr.,Cruz Magdalena Sánchez,NO,NO,N/A,0%,2,0,2
+CXC,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Checkpoint Control Interno CXP,Diaria,Especialista,Gabriela Solis,NO,NO,N/A,0%,2,0,2
+CXC,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Checkpoint Control Interno CXP,Diaria,Especialista,Karla Cuadros,NO,NO,N/A,0%,2,0,2
+CXC,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Checkpoint Control Interno CXP,Diaria,Especialista,Ma del Carmen Zapata,NO,NO,N/A,0%,2,0,2
+CxC,OPERATIVO,Otra operación CXP,Comparativo de avance de partidas +360 dias,Mensual,Especialista,Gabriela Solis,NO,NO,N/A,0%,3,0,3
+CXC,OPERATIVO,Depuración de Ctas,Compensacion Cta Liverpool - 20030002 ,Diaria,Jefe Sr.,Cruz Magdalena Sánchez,SI,SI,TERCERO,100%,10,10,0
+CXC,OPERATIVO,Depuración de Ctas,Compensacion Cta Liverpool - 20030002 ,Diaria,Jefe Sr.,Cruz Magdalena Sánchez,NO,SI,N/A,0%,0.5,0,0.5
+CXC,OPERATIVO,Depuración de Ctas,Compensacion Cta Liverpool - 20040002 ,Diaria,Jefe Sr.,Cruz Magdalena Sánchez,SI,SI,TERCERO,100%,10,10,0
+CXC,OPERATIVO,Depuración de Ctas,Compensacion Cta Liverpool - 20040002 ,Diaria,Jefe Sr.,Cruz Magdalena Sánchez,NO,SI,N/A,0%,4,0,4
+CXC,OPERATIVO,Depuración de Ctas,Compensacion Cta Suburbia - 20030002 ,Diaria,Jefe Sr.,Cruz Magdalena Sánchez,SI,SI,TERCERO,100%,10,10,0
+CXC,OPERATIVO,Depuración de Ctas,Compensacion Cta Suburbia - 20030002 ,Diaria,Jefe Sr.,Cruz Magdalena Sánchez,NO,SI,N/A,0%,8,0,8
+CXC,OPERATIVO,Depuración de Ctas,Compensacion Cta Suburbia - 20040002,Diaria,Jefe Sr.,Cruz Magdalena Sánchez,SI,SI,TERCERO,100%,10,10,0
+CXC,OPERATIVO,Depuración de Ctas,Compensacion Cta Suburbia - 20040002,Diaria,Jefe Sr.,Cruz Magdalena Sánchez,NO,SI,N/A,0%,4,0,4
+CxC,OPERATIVO,Depuración de Ctas,Compensación DW LIV,Diaria,Especialista,Gabriela Solis,SI,SI,TERCERO,20%,80,16,64
+CxC,OPERATIVO,Depuración de Ctas,Compensación DW SBB,Diaria,Especialista,Karla Cuadros,SI,SI,TERCERO,20%,75,15,60
+CxC,OPERATIVO,Otra operación CXP,Desbloqueos D,Diaria,Especialista,Gabriela Solis,NO,SI,N/A,0%,6,0,6
+CXC,OPERATIVO,Otra operación CXP,"Ejecución de AppSheet ""DW"" y  soporte al proveedor.",Diaria,Especialista,Ma del Carmen Zapata,SI,SI,TERCERO,100%,0.025,0.025,0
+CXC,OPERATIVO,Otra operación CXP,"Ejecución de AppSheet ""Invitación a Domiciliación""",Diaria,Especialista,Ma del Carmen Zapata,SI,SI,TERCERO,100%,0.025,0.025,0
+CxC,OPERATIVO,Contabilidad electrónica CXP,Emisión de REP y Ligado SBB,Mensual,Especialista,Karla Cuadros,SI,SI,TERCERO,80%,8,6.4,1.6
+CXC,OPERATIVO,Otra operación CXP,Incorporación de proveedores a Domiciliación (con actualizacion del Job de Bloqueos),Diaria,Especialista,Ma del Carmen Zapata,SI,SI,TERCERO,20%,110,22,88
+CxC,OPERATIVO,Otra operación CXP,PRGX - Actualización Dashboard Cargos de PRGX,Mensual,Jefe Sr.,Cruz Magdalena Sánchez,NO,SI,N/A,0%,2,0,2
+CXC,OPERATIVO,Contabilizaciones,PRGX - Contabilización y Emision de Facturas,Mensual,Jefe Sr.,Cruz Magdalena Sánchez,SI,SI,TERCERO,80%,15,12,3
+CXC,OPERATIVO,Otra operación CXP,PRGX - Creación de solicitudes a compras (pedidos),Mensual,Jefe Sr.,Cruz Magdalena Sánchez,NO,SI,N/A,0%,10,0,10
+CXC,OPERATIVO,Contabilidad electrónica CXP,PRGX - Emisión REP,Mensual,Jefe Sr.,Cruz Magdalena Sánchez,SI,SI,TERCERO,80%,5,4,1
+CxC,OPERATIVO,Otra operación CXP,PRGX - Reporte de Ingresos y Gastos,Mensual,Jefe Sr.,Cruz Magdalena Sánchez,NO,SI,N/A,0%,1.5,0,1.5
+CxC,OPERATIVO,Otra operación CXP,Proceso cobros domiciliados LIV & SBB,Semanal,Especialista,Ma del Carmen Zapata,SI,SI,TERCERO,100%,8,8,0
+CXC,MEJORA CONTINUA,Iniciativas y proyectos,Proyectos e iniciativa de CXC,Diaria,Jefe Sr.,Cruz Magdalena Sánchez,NO,NO,N/A,0%,75,0,75
+CxC,OPERATIVO,Otra operación CXP,Reporte de bancos SBB/LIV,Mensual,Jefe Sr.,Cruz Magdalena Sánchez,NO,SI,N/A,0%,1.5,0,1.5
+CxC,OPERATIVO,Otra operación CXP,Reporte de partidas abiertas (con y sin ligue),Mensual,Especialista,Ma del Carmen Zapata,NO,SI,N/A,0%,2,0,2
+CxC,OPERATIVO,Otra operación CXP,Reporte de REP LIV & SBB,Mensual,Especialista,Karla Cuadros,NO,SI,N/A,0%,5,0,5
+CxC,OPERATIVO,KPI y Reportes,Reporte Saldos Deudores LIV & SBB,Mensual,Especialista,Gabriela Solis,SI,SI,DALI,100%,2,2,0
+CxC,OPERATIVO,Otra operación CXP,Revision saldos +360 dias  LIV /  Sesiones y envio de correo,Quincenal,Especialista,Gabriela Solis,NO,NO,N/A,0%,8,0,8
+CxC,OPERATIVO,Otra operación CXP,Revision saldos +360 dias SBB / Sesiones y envio de correo,Quincenal,Especialista,Karla Cuadros,NO,NO,N/A,0%,8,0,8
+CxC,SEGUIMIENTO / GESTIÓN,Otra operación CXP,"Revisiones alto nivel (compensación DW, deomiciliacion y seg con el equipo) ",Diaria,Jefe Sr.,Cruz Magdalena Sánchez,NO,NO,N/A,0%,25,0,25
+CxC,OPERATIVO,Otra operación CXP,Seguimiento partidas AB LIV& SBB,Quincenal,Especialista,Karla Cuadros,NO,NO,N/A,0%,2,0,2
+CxC,OPERATIVO,Otra operación CXP,Seguimientos a partidas abiertas bancos. (Joel),Mensual,Especialista,Karla Cuadros,NO,NO,N/A,0%,2,0,2
+CXC,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Sesiones con usuarios internos,Diaria,Jefe Sr.,Cruz Magdalena Sánchez,NO,NO,N/A,0%,8,0,8
+CXC,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Sesiones con usuarios internos,Diaria,Especialista,Gabriela Solis,NO,NO,N/A,0%,8,0,8
+CXC,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Sesiones con usuarios internos,Diaria,Especialista,Karla Cuadros,NO,NO,N/A,0%,8,0,8
+CXC,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Sesiones con usuarios internos,Diaria,Especialista,Ma del Carmen Zapata,NO,NO,N/A,0%,8,0,8
+CxC,OPERATIVO,Otra operación CXP,Traspasos de bancos SBB,Diaria,Especialista,Karla Cuadros,SI,SI,TERCERO,100%,4,4,0
+CxC,OPERATIVO,Otra operación CXP,Traspasos de pagos duplicados y referenciados,Quincenal,Especialista,Karla Cuadros,NO,SI,N/A,0%,2,0,2
+Facturación,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,40,0,40
+Facturación,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Especialista,Mayra Lara Aguilar,NO,NO,N/A,0%,50,0,50
+Facturación,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Especialista,Diana Laura Juarez,NO,NO,N/A,0%,90,0,90
+Facturación,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Jefe,Teofilo Uriel Dolores Huerta,NO,NO,N/A,0%,10,0,10
+Facturación,OPERATIVO,Otra operación CXP,"Atencion a Ticket ""Entrada Unica""",Diaria,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,6,0,6
+Facturación,OPERATIVO,Otra operación CXP,"Atencion a Ticket ""Entrada Unica""",Diaria,Especialista,Mayra Lara Aguilar,NO,NO,N/A,0%,8,0,8
+Facturación,OPERATIVO,Otra operación CXP,"Atencion a Ticket ""Entrada Unica""",Diaria,Especialista,Diana Laura Juarez,NO,NO,N/A,0%,10,0,10
+Facturación,OPERATIVO,Otra operación CXP,Seguimiento a proveedores VIP,Diaria,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,8,0,8
+Facturación,OPERATIVO,Otra operación CXP,Seguimiento a proveedores VIP,Diaria,Especialista,Mayra Lara Aguilar,NO,NO,N/A,0%,10,0,10
+Facturación,OPERATIVO,Otra operación CXP,Seguimiento a proveedores VIP,Diaria,Especialista,Diana Laura Juarez,NO,NO,N/A,0%,10,0,10
+Facturación,OPERATIVO,Otra operación CXP,Capacitación con proveedores  - Foros de Facturación,Quincenal,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,4,0,4
+Facturación,OPERATIVO,Otra operación CXP,Capacitación con proveedores  - Foros de Facturación,Quincenal,Especialista,Mayra Lara Aguilar,NO,NO,N/A,0%,4,0,4
+Facturación,OPERATIVO,Otra operación CXP,Capacitación con proveedores  - Foros de Facturación,Quincenal,Especialista,Diana Laura Juarez,NO,NO,N/A,0%,4,0,4
+Facturación,OPERATIVO,Otra operación CXP,Capacitación con proveedores - Incorporación Envio Aut,Semanal,Especialista,Diana Laura Juarez,NO,NO,N/A,0%,4,0,4
+Facturación,OPERATIVO,Otra operación CXP,Ligado de XML  -  Bloqueos E,Diaria,Especialista,Karla Angelica Neri ,SI,SI,TERCERO,100%,12,12,0
+Facturación,OPERATIVO,Otra operación CXP,Ligado de XML  -  Bloqueos E,Diaria,Especialista,Mayra Lara Aguilar,SI,SI,TERCERO,100%,12,12,0
+Facturación,OPERATIVO,Otra operación CXP,Ligado de XML  -  Bloqueos E,Diaria,Especialista,Diana Laura Juarez,SI,SI,TERCERO,100%,12,12,0
+Facturación,OPERATIVO,Otra operación CXP,Cumplimiento de Ligado y Calidad - Contabilidad Electronica,Diaria,Especialista,Karla Angelica Neri ,SI,SI,TERCERO,100%,20,20,0
+Facturación,OPERATIVO,Otra operación CXP,Cumplimiento de Ligado y Calidad - Contabilidad Electronica,Diaria,Especialista,Mayra Lara Aguilar,SI,SI,TERCERO,100%,17,17,0
+Facturación,OPERATIVO,Otra operación CXP,Cumplimiento de Ligado y Calidad - Contabilidad Electronica,Diaria,Especialista,Diana Laura Juarez,SI,SI,TERCERO,100%,20,20,0
+Facturación,OPERATIVO,Otra operación CXP,Cierre y Apertura de portales (automatico y buzón de excepciones) ,Diaria,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,2,0,2
+Facturación,OPERATIVO,Otra operación CXP,Cierre y Apertura de portales (automatico y buzón de excepciones) ,Diaria,Especialista,Mayra Lara Aguilar,NO,NO,N/A,0%,2,0,2
+Facturación,OPERATIVO,Otra operación CXP,Cierre y Apertura de portales (automatico y buzón de excepciones) ,Diaria,Jefe,Teofilo Uriel Dolores Huerta,NO,NO,N/A,0%,2,0,2
+Facturación,OPERATIVO,Otra operación CXP,"Incorporación Envio Aut ""Token"" 
+- Validacion XML
+- Token
+- Cambio de correos
+- Configuracion en SAP (XK03 & ZCPFE)",Diaria,Especialista,Diana Laura Juarez,SI,SI,TERCERO,10%,10,1,9
+Facturación,OPERATIVO,Contabilizaciones,Validacion y seguimiento ISN ,Diaria,Especialista,Diana Laura Juarez,SI,SI,TERCERO,95%,2,1.9,0.1
+Facturación,OPERATIVO,Otra operación CXP,Seguimiento y Control de Proveedores de Consignación (reprocesos),Diaria,Especialista,Karla Angelica Neri ,SI,SI,TERCERO,20%,10,2,8
+Facturación,OPERATIVO,Otra operación CXP,"Seguimiento Ventas incorrectas cebe 880 y 895 (Bloqueos, Reportes y borrado , seguimiento a pagos realizados)",Diaria,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,4,0,4
+Facturación,OPERATIVO,Contabilizaciones,Registros Manuales - Drive de construcción,Diaria,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,4,0,4
+Facturación,OPERATIVO,Otra operación CXP,Seguimiento Pagos Duplicados,Diaria,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,2,0,2
+Facturación,OPERATIVO,Contabilizaciones,Reprocesos del Automatico _ Macro Felog,Diaria,Especialista,Mayra Lara Aguilar,SI,SI,TERCERO,100%,4,4,0
+Facturación,OPERATIVO,Contabilizaciones,Cancelación documentos bloqueo R & compensacion cta de mayor 22980017,Semanal,Especialista,Mayra Lara Aguilar,SI,SI,DALI,25%,2,0.5,1.5
+Facturación,OPERATIVO,Contabilizaciones,Documentacion de validacion y reprocesos de facturacion,Semanal,Jefe,Teofilo Uriel Dolores Huerta,NO,NO,N/A,0%,2,0,2
+Facturación,OPERATIVO,Otra operación CXP,Carga de CSF en portal EU,Mensual,Jefe,Teofilo Uriel Dolores Huerta,NO,NO,N/A,0%,0.5,0,0.5
+Facturación,OPERATIVO,Otra operación CXP,Cierre y Apertura de portales (automatico y buzón de excepciones) ,Mensual,Jefe,Teofilo Uriel Dolores Huerta,NO,NO,N/A,0%,2,0,2
+Facturación,OPERATIVO,Contabilizaciones,Contabilización de Facturas (Proveedores),Diaria,Especialista,Karla Angelica Neri ,SI,SI,TERCERO,85%,190,161.5,28.5
+Facturación,OPERATIVO,Contabilizaciones,Contabilización de Facturas (Proveedores),Diaria,Especialista,Mayra Lara Aguilar,SI,SI,TERCERO,85%,185,157.25,27.75
+Facturación,OPERATIVO,Contabilizaciones,Contabilización de Facturas (Proveedores),Diaria,Especialista,Diana Laura Juarez,SI,SI,TERCERO,85%,242,205.7,36.3
+Facturación,OPERATIVO,Contabilizaciones,Contabilización de Facturas (Proveedores),Diaria,Jefe,Teofilo Uriel Dolores Huerta,SI,SI,TERCERO,85%,53,45.05,7.95
+Facturación,OPERATIVO,Otra operación CXP,Generación de RECADV manuales para ECC y SBB,Mensual,Especialista,Mayra Lara Aguilar,SI,SI,TERCERO,100%,8,8,0
+Facturación,OPERATIVO,Otra operación CXP,Generación de RECADV manuales para ECC y SBB,Mensual,Especialista,Diana Laura Juarez,SI,SI,TERCERO,100%,8,8,0
+Facturación,OPERATIVO,Otra operación CXP,Validacion al buzón de excepciones (confirmaciones y estatus),Diaria,Jefe,Teofilo Uriel Dolores Huerta,SI,SI,DIP,10%,4,0.4,3.6
+Facturación,OPERATIVO,Otra operación CXP,Validacion al buzón de excepciones (opcion 1),Diaria,Jefe,Teofilo Uriel Dolores Huerta,SI,SI,DIP,100%,2,2,0
+Facturación,OPERATIVO,Otra operación CXP,Validacion de ejecucion al programa 46,Diaria,Jefe,Teofilo Uriel Dolores Huerta,NO,NO,N/A,100%,0.5,0.5,0
+Facturación,OPERATIVO,Otra operación CXP,Validacion de reportes de consignacion,Diaria,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,5,0,5
+Facturación,OPERATIVO,Otra operación CXP,Validacíón de vías de pago en Devoluciones Servicios (KC),Mensual,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,0.5,0,0.5
+Facturación,OPERATIVO,KPI y Reportes,Armado de KPI de Facturación,Mensual,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,0.5,0,0.5
+Facturación,MEJORA CONTINUA,Incidencias,Incidencias AMS y Entrada Unica,Semanal,Jefe,Teofilo Uriel Dolores Huerta,NO,NO,N/A,0%,38,0,38
+Facturación,MEJORA CONTINUA,Incidencias,Incidencias AMS y Entrada Unica,Semanal,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,20,0,20
+Facturación,MEJORA CONTINUA,Incidencias,Incidencias AMS y Entrada Unica,Semanal,Especialista,Mayra Lara Aguilar,NO,NO,N/A,0%,30,0,30
+Facturación,MEJORA CONTINUA,Proyectos,Proyectos e iniciativa de Facturacion,Semanal,Jefe,Teofilo Uriel Dolores Huerta,NO,NO,N/A,0%,103,0,103
+Facturación,MEJORA CONTINUA,Proyectos,Proyectos e iniciativa de Facturacion,Semanal,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,25,0,25
+Facturación,MEJORA CONTINUA,Proyectos,Proyectos e iniciativa de Facturacion,Semanal,Especialista,Mayra Lara Aguilar,NO,NO,N/A,0%,35,0,35
+Gastos de Viaje,OPERATIVO,Liquidación de Viajes,Revisión  y liquidación de viajes,Diaria,Especialista,Jennifer Medina,SI,SI,TERCERO,70%,190,133,57
+Gastos de Viaje,OPERATIVO,Liquidación de Viajes,Contabilización de viajes,Diaria,Especialista,Jennifer Medina,NO,SI,N/A,0%,12,0,12
+Gastos de Viaje,OPERATIVO,Liquidación de Viajes,Registro de depositos de sobrante de anticpos  ECC-S4 HANA,Diaria,Especialista,Jennifer Medina,NO,SI,N/A,0%,6,0,6
+Gastos de Viaje,OPERATIVO,Liquidación de Viajes,Compensacion de cuentas acreedores viajeros ECC- S4 HANA,Diaria,Especialista,Jennifer Medina,SI,SI,N/A,100%,24,24,0
+Gastos de Viaje,OPERATIVO,Liquidación de Viajes,Compensacion de cuentas acreedores viajeros ECC- S4 HANA,Diaria,Especialista,Jennifer Medina,NO,SI,N/A,0%,20,0,20
+Gastos de Viaje,OPERATIVO,Liquidación de Viajes,Compensación de Cuenta de Anticipos 11910002,Semanal,Especialista,Jennifer Medina,SI,SI,N/A,100%,6,6,0
+Gastos de Viaje,OPERATIVO,Liquidación de Viajes,Compensación de Cuenta de Anticipos 11910002,Semanal,Especialista,Jennifer Medina,NO,SI,N/A,0%,2,0,2
+Gastos de Viaje,OPERATIVO,Boletos de avión,Validacion de Facturación de compra de  boletos de avión Orion tours,Diaria,Especialista,Jennifer Medina,NO,SI,N/A,0%,10,0,10
+Gastos de Viaje,OPERATIVO,Anticipos,Contabilizacion de solicitudes de anticipo ECC- S4 HANA,Semanal,Especialista,Jennifer Medina,NO,SI,N/A,0%,8,0,8
+Gastos de Viaje,OPERATIVO,Anticipos,Propuesta de pagó (anticipos/ reembolsos) ECC- S4 HANA,Semanal,Especialista,Jennifer Medina,NO,SI,N/A,0%,8,0,8
+Gastos de Viaje,OPERATIVO,Reportes,Reportes Semanales  Procesos GDV,Semanal,Especialista,Jennifer Medina,NO,SI,N/A,0%,10,0,10
+Gastos de Viaje,OPERATIVO,KPI´s,Reportes cierre mensual Procesos GDV,Mensual,Especialista,Jennifer Medina,NO,SI,N/A,0%,5,0,5
+Gastos de Viaje,SEGUIMIENTO / GESTIÓN,Iniciativas y proyectos,"Proyectos e Iniciativas
+-Generación de ERF´s
+-Participación en Pruebas
+-Automatizaciones (Dalis,Macros, DIPS)",Semanal,Especialista,Jennifer Medina,NO,NO,N/A,0%,12,0,12
+Gastos de Viaje,SEGUIMIENTO / GESTIÓN,Otra operación CXP,"Otras actividades Operativas
+-Revisión de Correos
+-Seguimiento a Incidencias
+-Atención Usuarios
+-Generación de Reportes de control
+-Seguimiento a Saldos deudores 
+-Capacitaciones 
+-Reuniones",Diaria,Especialista,Jennifer Medina,NO,SI,N/A,0%,16,0,16
+Gastos de Viaje,OPERATIVO,Liquidación de Viajes,Revisión  y liquidación de viajes,Diaria,Jefe,Aurea Gabriela,SI,SI,TERCERO,70%,40,28,12
+Gastos de Viaje,OPERATIVO,Boletos de avión,Carga de TXT - contabiliza archivo de Orion Tours,Diaria,Jefe,Aurea Gabriela,SI,SI,N/A,100%,20,20,0
+Gastos de Viaje,OPERATIVO,Boletos de avión,Carga de TXT - contabiliza archivo de Orion Tours,Diaria,Jefe,Aurea Gabriela,NO,SI,N/A,0%,2,0,2
+Gastos de Viaje,OPERATIVO,Boletos de avión,Validacion de Facturación de compra de  boletos de avión Orion tours,Diaria,Jefe,Aurea Gabriela,NO,SI,N/A,0%,4,0,4
+Gastos de Viaje,OPERATIVO,Boletos de avión,Compensacion de la cuenta de boletos de avion No utilizados 11910006 ECC- S4 HANA,Semanal,Jefe,Aurea Gabriela,SI,SI,N/A,100%,10,10,0
+Gastos de Viaje,OPERATIVO,Boletos de avión,Compensacion de la cuenta de boletos de avion No utilizados 11910006 ECC- S4 HANA,Semanal,Jefe,Aurea Gabriela,NO,SI,N/A,0%,3,0,3
+Gastos de Viaje,OPERATIVO,Boletos de avión,Contabilidad de  boletos de avion No utilizados a ND ECC - S4 HANA,Mensual,Jefe,Aurea Gabriela,NO,NO,N/A,0%,4,0,4
+Gastos de Viaje,OPERATIVO,Boletos de avión,Compensacion de la cuenta Orion Tours ECC- S4 HANA,Semanal,Jefe,Aurea Gabriela,SI,SI,N/A,100%,10,10,0
+Gastos de Viaje,OPERATIVO,Boletos de avión,Compensacion de la cuenta Orion Tours ECC- S4 HANA,Semanal,Jefe,Aurea Gabriela,NO,NO,N/A,0%,6,0,6
+Gastos de Viaje,OPERATIVO,Boletos de avión,Compensación de Cuenta de boletos de Avión 11910003,Semanal,Jefe,Aurea Gabriela,SI,SI,N/A,100%,10,10,0
+Gastos de Viaje,OPERATIVO,Boletos de avión,Compensación de Cuenta de boletos de Avión 11910003,Semanal,Jefe,Aurea Gabriela,NO,NO,N/A,0%,4,0,4
+Gastos de Viaje,OPERATIVO,Boletos de avión,Registro de Intercompañias entre cta orion 7753 ECC-S4 HANA,Diaria,Jefe,Aurea Gabriela,NO,SI,N/A,0%,20,0,20
+Gastos de Viaje,OPERATIVO,Proceso LPC,Conciliacion de LPC  - Orion ECC-S4 HANA,Diaria,Jefe,Aurea Gabriela,SI,SI,DIP,100%,32,32,0
+Gastos de Viaje,OPERATIVO,Proceso LPC,Conciliacion de LPC  - Orion ECC-S4 HANA,Diaria,Jefe,Aurea Gabriela,NO,NO,N/A,0%,16,0,16
+Gastos de Viaje,OPERATIVO,Proceso LPC,Registro de Intercompañias entre cta LPC 4500081 ECC-S4 HANA,Semanal,Jefe,Aurea Gabriela,NO,SI,N/A,0%,10,0,10
+Gastos de Viaje,OPERATIVO,Proceso LPC,Propuestas de pago LPC ECC- S4 HANA,Mensual,Jefe,Aurea Gabriela,NO,SI,N/A,0%,6,0,6
+Gastos de Viaje,OPERATIVO,KPI y Reportes,Reportes Semanales y cierre mensual Procesos GDV,Semanal,Jefe,Aurea Gabriela,NO,SI,N/A,0%,20,0,20
+Gastos de Viaje,OPERATIVO,Contabilidad electrónica CXP,Carga de xml de boletos de avión,Semanal,Jefe,Aurea Gabriela,SI,SI,DIP,50%,80,40,40
+Gastos de Viaje,OPERATIVO,Contabilidad electrónica CXP,Ligado de XML Gastos de viaje (Nacionales),Diaria,Jefe,Aurea Gabriela,SI,SI,N/A,100%,80,80,0
+Gastos de Viaje,SEGUIMIENTO / GESTIÓN,Iniciativas y proyectos,"Proyectos e Iniciativas
+-Generación de ERF´s
+-Participación en Pruebas
+-Automatizaciones (Dalis,Macros, DIPS)",Semanal,Jefe,Aurea Gabriela,NO,NO,N/A,0%,18,0,18
+Gastos de Viaje,SEGUIMIENTO / GESTIÓN,Otra operación CXP,"Otras actividades Operativas
+-Revisión de Correos
+-Seguimiento a Incidencias
+-Atención Usuarios
+-Generación de Reportes de control
+-Seguimiento a Saldos deudores 
+-Capacitaciones 
+-Reuniones",Diaria,Jefe,Aurea Gabriela,NO,SI,N/A,0%,15,0,15
+Gerencia,OPERATIVO,Depuración de Ctas,Compensacion Cta  Liverpool - 13600004,Diaria,Gerente,Eunice San Roman,SI,SI,TERCERO,50%,20,10,10
+Gerencia,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Gerente,Eunice San Roman,NO,SI,N/A,15%,80,12,68
+Gerencia,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Actividades Extraordinarios  (Subdireccion / Dirección),Diaria,Gerente,Eunice San Roman,NO,SI,N/A,5%,22,1.1,20.9
+Gerencia,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Soporte y revision alto nivel del Equipo de CXP,Diaria,Gerente,Eunice San Roman,NO,SI,N/A,0%,40,0,40
+Gerencia,SEGUIMIENTO / GESTIÓN,Otra operación CXP,Sesiones con usuarios internos,Diaria,Gerente,Eunice San Roman,NO,NO,N/A,0%,45,0,45
+Gerencia,OPERATIVO,KPI y Reportes,Actualización Drive_Indicadores de efectividad,Mensual,Gerente,Eunice San Roman,NO,SI,N/A,0%,5,0,5
+Importaciones,OPERATIVO,Contabilizaciones,Contabilizacion de facturas Proveedores con XML (Servicios/Mercancias),Diaria,Jefe,Christopher Garcia,SI,SI,TERCERO,100%,216,216,0
+Importaciones,OPERATIVO,Contabilizaciones,Contabilizacion de facturas Proveedores con XML (Servicios/Mercancias),Semanal,Jefe,Christopher Garcia,NO,SI,N/A,0%,5,0,5
+Importaciones,OPERATIVO,Contabilizaciones,Contabilizacion de solicitudes de pago proveedores Extranjeros,Diaria,Jefe,Christopher Garcia,SI,SI,TERCERO,100%,161,161,0
+Importaciones,OPERATIVO,Contabilizaciones,Contabilizacion de solicitudes de pago proveedores Extranjeros,Semanal,Jefe,Christopher Garcia,NO,SI,N/A,0%,5,0,5
+Importaciones,OPERATIVO,Contabilizaciones,Contabilización AA,Diaria,Jefe,Christopher Garcia,SI,SI,N/A,100%,200,200,0
+Importaciones,OPERATIVO,Contabilizaciones,Contabilización AA (Reproceso),Semanal,Jefe,Christopher Garcia,NO,SI,N/A,0%,5,0,5
+Importaciones,OPERATIVO,Contabilizaciones,Contabilización DPAs,Semanal,Jefe,Christopher Garcia,NO,NO,N/A,0%,5,0,5
+Importaciones,OPERATIVO,Propuestas de Pago,Estimado y generación de Propuestas de Pago Proveedores / AA,Diaria,Jefe,Christopher Garcia,NO,NO,N/A,0%,80,0,80
+Importaciones,OPERATIVO,Reportes,Reportes Semanales de control,Semanal,Jefe,Christopher Garcia,SI,SI,N/A,0%,20,0,20
+Importaciones,OPERATIVO,KPI´s,Reportes cierre mensual Procesos CXP Importaciones,Mensual,Jefe,Christopher Garcia,SI,SI,N/A,0%,8,0,8
+Importaciones,OPERATIVO,Compensación,"Compensación AA
+",Semanal,Jefe,Christopher Garcia,NO,SI,N/A,0%,8,0,8
+Importaciones,OPERATIVO,Compensación,Compensación Proveedores Procesos de importación,Diaria,Jefe,Christopher Garcia,SI,SI,N/A,100%,119,119,0
+Importaciones,OPERATIVO,Compensación,Compensación Proveedores Procesos de importación,Semanal,Jefe,Christopher Garcia,NO,SI,N/A,0%,8,0,8
+Importaciones,OPERATIVO,Compensación,Compensación DPA´S,Semanal,Jefe,Christopher Garcia,NO,SI,N/A,0%,8,0,8
+Importaciones,OPERATIVO,Contabilidad electrónica CXP,Validación y ligado de XML,Diaria,Jefe,Christopher Garcia,SI,SI,TERCERO,100%,119,119,0
+Importaciones,OPERATIVO,Contabilidad electrónica CXP,Validación y ligado de XML,Semanal,Jefe,Christopher Garcia,NO,NO,N/A,0%,8,0,8
+Importaciones,SEGUIMIENTO / GESTIÓN,Iniciativas y proyectos,"Proyectos e Iniciativas
+-Generación de ERF´s
+-Participación en Pruebas
+-Automatizaciones (Dalis,Macros, DIPS)",Semanal,Jefe,Christopher Garcia,NO,NO,N/A,0%,16,0,16
+Importaciones,SEGUIMIENTO / GESTIÓN,Otra operación CXP,"Otras actividades Operativas
+-Revisión de Correos
+-Seguimiento a Incidencias
+-Atención Usuarios
+-Generación de Reportes de control
+-Seguimiento a Saldos deudores 
+-Reuniones",Diaria,Jefe,Christopher Garcia,NO,SI,N/A,0%,20,0,20
+Importaciones,OPERATIVO,Contabilizaciones,Contabilizacion de facturas Proveedores con XML (Servicios/Mercancias),Diaria,Especialista,Alexadra Estrella,NO,SI,N/A,0%,12,0,12
+Importaciones,OPERATIVO,Contabilizaciones,Contabilizacion de solicitudes de pago proveedores Extranjeros,Diaria,Especialista,Alexadra Estrella,NO,SI,N/A,0%,24,0,24
+Importaciones,OPERATIVO,Contabilizaciones,Contabilización AA (Reproceso),Diaria,Especialista,Alexadra Estrella,NO,SI,N/A,0%,12,0,12
+Importaciones,OPERATIVO,Contabilizaciones,Contabilización DPAs,Diaria,Especialista,Alexadra Estrella,NO,NO,N/A,0%,12,0,12
+Importaciones,OPERATIVO,Contabilizaciones,Generación de Anticipos Servicios y Mercancias,Diaria,Especialista,Alexadra Estrella,NO,SI,N/A,0%,4,0,4
+Importaciones,OPERATIVO,Reportes,Reportes Semanales de control,Semanal,Especialista,Alexadra Estrella,NO,SI,N/A,0%,20,0,20
+Importaciones,OPERATIVO,KPI´s,Reportes cierre mensual Procesos CXP Importaciones,Mensual,Especialista,Alexadra Estrella,NO,SI,N/A,0%,2,0,2
+Importaciones,OPERATIVO,Compensación,"Compensación AA
+",Diaria,Especialista,Alexadra Estrella,NO,SI,N/A,0%,20,0,20
+Importaciones,OPERATIVO,Compensación,Compensación Proveedores Procesos de importación,Diaria,Especialista,Alexadra Estrella,NO,SI,N/A,0%,20,0,20
+Importaciones,OPERATIVO,Compensación,Compensación DPA´S,Diaria,Especialista,Alexadra Estrella,NO,SI,N/A,0%,20,0,20
+Importaciones,OPERATIVO,Contabilidad electrónica CXP,Validación y ligado de XML,Diaria,Especialista,Alexadra Estrella,NO,SI,N/A,0%,16,0,16
+Importaciones,SEGUIMIENTO / GESTIÓN,Iniciativas y proyectos,"Proyectos e Iniciativas
+-Generación de ERF´s
+-Participación en Pruebas
+-Automatizaciones (Dalis,Macros, DIPS)",Semanal,Especialista,Alexadra Estrella,NO,NO,N/A,0%,8,0,8
+Importaciones,SEGUIMIENTO / GESTIÓN,Otra operación CXP,"Otras actividades Operativas
+-Revisión de Correos
+-Seguimiento a Incidencias
+-Atención Usuarios
+-Generación de Reportes de control
+-Seguimiento a Saldos deudores 
+-Reuniones",Diaria,Especialista,Alexadra Estrella,NO,SI,N/A,0%,20,0,20
+Importaciones,OPERATIVO,Contabilizaciones,Contabilizacion de facturas Proveedores con XML (Servicios/Mercancias),Diaria,Especialista,Santiago Gomez,NO,SI,N/A,0%,12,0,12
+Importaciones,OPERATIVO,Contabilizaciones,Contabilizacion de solicitudes de pago proveedores Extranjeros,Diaria,Especialista,Santiago Gomez,NO,SI,N/A,0%,24,0,24
+Importaciones,OPERATIVO,Contabilizaciones,Contabilización AA (Reproceso),Diaria,Especialista,Santiago Gomez,NO,SI,N/A,0%,12,0,12
+Importaciones,OPERATIVO,Contabilizaciones,Contabilización DPAs,Diaria,Especialista,Santiago Gomez,NO,NO,N/A,0%,12,0,12
+Importaciones,OPERATIVO,Reportes,Reportes Semanales de control,Semanal,Especialista,Santiago Gomez,NO,SI,N/A,0%,20,0,20
+Importaciones,OPERATIVO,KPI´s,Reportes cierre mensual Procesos CXP Importaciones,Mensual,Especialista,Santiago Gomez,NO,SI,N/A,0%,2,0,2
+Importaciones,OPERATIVO,Compensación,"Compensación AA
+",Diaria,Especialista,Santiago Gomez,NO,SI,N/A,0%,20,0,20
+Importaciones,OPERATIVO,Compensación,Compensación Proveedores Procesos de importación,Diaria,Especialista,Santiago Gomez,NO,SI,N/A,0%,20,0,20
+Importaciones,OPERATIVO,Compensación,Compensación DPA´S,Diaria,Especialista,Santiago Gomez,NO,SI,N/A,0%,20,0,20
+Importaciones,OPERATIVO,Contabilidad electrónica CXP,Validación y ligado de XML,Diaria,Especialista,Santiago Gomez,NO,SI,N/A,0%,16,0,16
+Importaciones,SEGUIMIENTO / GESTIÓN,Iniciativas y proyectos,"Proyectos e Iniciativas
+-Generación de ERF´s
+-Participación en Pruebas
+-Automatizaciones (Dalis,Macros, DIPS)",Semanal,Especialista,Santiago Gomez,NO,NO,N/A,0%,8,0,8
+Importaciones,SEGUIMIENTO / GESTIÓN,Otra operación CXP,"Otras actividades Operativas
+-Revisión de Correos
+-Seguimiento a Incidencias
+-Atención Usuarios
+-Generación de Reportes de control
+-Seguimiento a Saldos deudores 
+-Reuniones",Diaria,Especialista,Santiago Gomez,NO,SI,N/A,0%,20,0,20
+KPI y Reportes,OPERATIVO,KPI y Reportes,Actualización Drive_Indicadores de efectividad,Mensual,Coordinador,David Cruz,NO,NO,N/A,0%,4,0,4
+KPI y Reportes,OPERATIVO,KPI y Reportes,CXP-NAC-Factoraje,Mensual,Especialista,Susana Espinosa,NO,SI,N/A,0%,4,0,4
+KPI y Reportes,OPERATIVO,KPI y Reportes,CXP-NAC-Registro de facturas,Mensual,Especialista,Karla Angelica Neri ,SI,SI,DALI,10%,2,0.2,1.8
+KPI y Reportes,OPERATIVO,KPI y Reportes,CXP-NAC-Saldos Deudores Mercaderías LIV & SBB,Mensual,Especialista,Susana Espinosa,NO,SI,N/A,0%,10,0,10
+KPI y Reportes,OPERATIVO,KPI y Reportes,Actualización Data Studio Saldos Deudores Mercaderias LIV,Mensual,Especialista,Susana Espinosa,NO,SI,N/A,0%,4,0,4
+KPI y Reportes,OPERATIVO,KPI y Reportes,Actualización Data Studio Saldos Deudores Mercaderias SBB,Mensual,Especialista,Susana Espinosa,NO,SI,N/A,0%,4,0,4
+KPI y Reportes,OPERATIVO,KPI y Reportes,Data Studio_PRGX,Semanal,Especialista,Susana Espinosa,NO,SI,N/A,0%,6,0,6
+KPI y Reportes,OPERATIVO,KPI y Reportes,Reporte de bancos Liverpool/SBB,Mensual,Especialista,Karla Cuadros,NO,SI,N/A,0%,4,0,4
+KPI y Reportes,OPERATIVO,KPI y Reportes,Reporte de Letras Operadas Nuevo Factoraje,Mensual,Especialista,Susana Espinosa,NO,SI,N/A,0%,4,0,4
+KPI y Reportes,OPERATIVO,KPI y Reportes,Reporte de Pagos Duplicados,Mensual,Especialista,Karla Angelica Neri ,NO,NO,N/A,0%,2,0,2
+KPI y Reportes,OPERATIVO,KPI y Reportes,Reporte de Saldos Deudores Servicios LIV & SBB (Mensual),Mensual,Especialista,Karla Cuadros,SI,SI,DALI,30%,10,3,7
+Pagos,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Jefe,Norma Hernandez,NO,NO,N/A,0%,25,0,25
+Pagos,OPERATIVO,Otra operación CXP,Seguimiento y apoyo al equipo ,Mensual,Jefe,Norma Hernandez,NO,NO,N/A,0%,40,0,40
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-04-Saldos Deudores Mercaderias Dilisa,Mensual,Jefe,Norma Hernandez,NO,SI,N/A,0%,3,0,3
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-05-Saldos Deudores Mercaderias Suburbia,Mensual,Jefe,Norma Hernandez,NO,SI,N/A,0%,3,0,3
+Pagos,OPERATIVO,Propuestas de Pago,Pagos - BYD,Semanal,Jefe,Erica Isidoro,NO,SI,N/A,0%,15,0,15
+Pagos,OPERATIVO,Propuestas de Pago,Pagos - BYD,Semanal,Jefe,Dhamar Perez,NO,SI,N/A,0%,15,0,15
+Pagos,OPERATIVO,Propuestas de Pago,Pagos - Extranjeros,Semanal,Jefe,Erica Isidoro,NO,SI,N/A,0%,20,0,20
+Pagos,OPERATIVO,Propuestas de Pago,Pagos - Extranjeros,Semanal,Jefe,Dhamar Perez,NO,SI,N/A,0%,20,0,20
+Pagos,OPERATIVO,Propuestas de Pago,Pagos - Extraordinarios,Semanal,Jefe,Erica Isidoro,NO,SI,N/A,0%,10,0,10
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-Integracion de cuentas EMRF DILISA,Mensual,Jefe,Norma Hernandez,SI,SI,DIP,100%,3,3,0
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-Integracion de cuentas EMRF Otras Soc,Mensual,Jefe,Norma Hernandez,SI,SI,DIP,100%,3,3,0
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-Integracion de cuentas EMRF SBB,Mensual,Jefe,Norma Hernandez,SI,SI,DIP,100%,2,2,0
+Pagos,OPERATIVO,Propuestas de Pago,Pagos - Extraordinarios,Semanal,Jefe,Dhamar Perez,NO,SI,N/A,0%,10,0,10
+Pagos,OPERATIVO,Propuestas de Pago,Pagos - Pensión alimentaria,Semanal,Jefe,Erica Isidoro,NO,SI,N/A,0%,2,0,2
+Pagos,OPERATIVO,Propuestas de Pago,Pagos - Pensión alimentaria,Semanal,Jefe,Dhamar Perez,NO,SI,N/A,0%,2,0,2
+Pagos,OPERATIVO,Propuestas de Pago,Pagos - Especiales,Semanal,Jefe,Erica Isidoro,SI,SI,DALI,80%,55,44,11
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-08-Acumulado ConPag x transferencia,Mensual,Jefe,Norma Hernandez,NO,SI,N/A,0%,2,0,2
+Pagos,OPERATIVO,KPI y Reportes,Reporte cierre mensual margen Froy,Mensual,Jefe,Norma Hernandez,NO,SI,N/A,0%,3,0,3
+Pagos,OPERATIVO,KPI y Reportes,Reporte de 50 principales proveedores (Bolsa),Mensual,Jefe,Norma Hernandez,NO,SI,N/A,0%,1,0,1
+Pagos,OPERATIVO,Propuestas de Pago,Pagos - Especiales,Semanal,Jefe,Dhamar Perez,SI,SI,DALI,80%,55,44,11
+Pagos,OPERATIVO,Propuestas de Pago,Pagos - Programados,Semanal,Jefe,Erica Isidoro,SI,SI,DIP,80%,40,32,8
+Pagos,OPERATIVO,Propuestas de Pago,Pagos - Programados,Semanal,Jefe,Dhamar Perez,SI,SI,DIP,80%,40,32,8
+Pagos,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Jefe,Erica Isidoro,NO,NO,N/A,0%,40,0,40
+Pagos,OPERATIVO,Otra operación CXP,Aclaración de proveedores - Correos,Diaria,Jefe,Dhamar Perez,NO,NO,N/A,0%,40,0,40
+Pagos,OPERATIVO,Otra operación CXP,Actualización Data Studio Rechazos Bancarios (actualizacion),Mensual,Jefe,Erica Isidoro,NO,SI,N/A,0%,4,0,4
+Pagos,OPERATIVO,KPI y Reportes,Reporte NCargo de Telcel,Mensual,Jefe,Norma Hernandez,NO,SI,N/A,0%,2,0,2
+Pagos,OPERATIVO,Otra operación CXP,Actualización Data Studio Rechazos Bancarios (actualizacion),Mensual,Jefe,Dhamar Perez,NO,SI,N/A,0%,4,0,4
+Pagos,OPERATIVO,Otra operación CXP,"Atencion a Ticket ""Entrada Unica""",Diaria,Jefe,Erica Isidoro,NO,NO,N/A,0%,8,0,8
+Pagos,OPERATIVO,Otra operación CXP,"Atencion a Ticket ""Entrada Unica""",Diaria,Jefe,Dhamar Perez,NO,NO,N/A,0%,8,0,8
+Pagos,OPERATIVO,Otra operación CXP,Capacitación con proveedores  - Foros de Pagos,Diaria,Jefe,Erica Isidoro,NO,NO,N/A,0%,4,0,4
+Pagos,OPERATIVO,Otra operación CXP,Capacitación con proveedores  - Foros de Pagos,Diaria,Jefe,Dhamar Perez,NO,NO,N/A,0%,4,0,4
+Pagos,OPERATIVO,Otra operación CXP,Carga de Rechazos Bancarios en EU,Semanal,Jefe,Dhamar Perez,NO,SI,N/A,0%,4,0,4
+Pagos,OPERATIVO,Otra operación CXP,Entregas de Auditoria PWC,Mensual,Jefe,Erica Isidoro,NO,NO,N/A,0%,1,0,1
+Pagos,OPERATIVO,Otra operación CXP,"Validación de Bloqueos ""E"" Liverpool y Suburbia",Semanal,Jefe,Erica Isidoro,SI,SI,TERCERO,80%,11,8.8,2.2
+Pagos,OPERATIVO,Otra operación CXP,"Validación de Bloqueos ""E"" Liverpool y Suburbia",Semanal,Jefe,Dhamar Perez,SI,SI,TERCERO,80%,11,8.8,2.2
+Pagos,OPERATIVO,Otra operación CXP,Emision de Notas de Cargo x Bonificaciones Telcel,Mensual,Jefe,Erica Isidoro,SI,SI,TERCERO,100%,1,1,0
+Pagos,OPERATIVO,Otra operación CXP,Seguimiento especial Mattel / Hasbro ,Anual,Jefe,Erica Isidoro,NO,NO,N/A,0%,1,0,1
+Pagos,OPERATIVO,Otra operación CXP,Seguimiento especial Mattel / Hasbro ,Anual,Jefe,Dhamar Perez,NO,NO,N/A,0%,1,0,1
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-Cifras Control_Factoraje,Mensual,Jefe,Erica Isidoro,NO,SI,N/A,0%,8,0,8
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-Cifras Control_Factoraje,Mensual,Jefe,Dhamar Perez,NO,SI,N/A,0%,8,0,8
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-Cifras Control_Moasoc,Mensual,Jefe,Erica Isidoro,NO,SI,N/A,0%,5,0,5
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-Cifras Control_Moasoc,Mensual,Jefe,Dhamar Perez,NO,SI,N/A,0%,5,0,5
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-Control de Generación de propuestas,Diaria,Jefe,Erica Isidoro,NO,SI,N/A,0%,10,0,10
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-Control de Generación de propuestas,Diaria,Jefe,Dhamar Perez,NO,SI,N/A,0%,10,0,10
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-Reporte de Pagos,Mensual,Jefe,Erica Isidoro,NO,SI,DALI,0%,3,0,3
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-Reporte de Pagos,Mensual,Jefe,Dhamar Perez,NO,SI,DALI,0%,3,0,3
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-Reporte de Pagos extemporáneos,Mensual,Jefe,Erica Isidoro,NO,SI,N/A,0%,4,0,4
+Pagos,OPERATIVO,KPI y Reportes,CXP-NAC-Reporte de Pagos extemporáneos,Mensual,Jefe,Dhamar Perez,NO,SI,N/A,0%,4,0,4
+Pagos,OPERATIVO,KPI y Reportes,Reporte de entrega de Notas de Cargo a Telcel,Mensual,Jefe,Erica Isidoro,NO,SI,N/A,0%,3,0,3
+Pagos,OPERATIVO,KPI y Reportes,Reporte de entrega de Notas de Cargo a Telcel,Mensual,Jefe,Dhamar Perez,NO,SI,N/A,0%,3,0,3
+Pagos,OPERATIVO,KPI y Reportes,Reporte NCargo de Telcel,Mensual,Jefe,Erica Isidoro,NO,SI,N/A,0%,2,0,2
+Pagos,SEGUIMIENTO / GESTIÓN,Iniciativas y proyectos,Proyectos e iniciativa de Pagos,Semanal,Jefe,Erica Isidoro,NO,NO,N/A,0%,18,0,18
+Pagos,SEGUIMIENTO / GESTIÓN,Iniciativas y proyectos,Proyectos e iniciativa de Pagos,Semanal,Jefe,Dhamar Perez,NO,NO,N/A,0%,19,0,19
+Pagos,OPERATIVO,Factoraje,Pagos - Factoraje NAFIN,Semanal,Jefe,Erica Isidoro,NO,NO,N/A,0%,5,0,5
+Pagos,OPERATIVO,Factoraje,Pagos - Factoraje NAFIN,Semanal,Jefe,Dhamar Perez,NO,NO,N/A,0%,5,0,5
+Pagos,OPERATIVO,Factoraje,Vencimientos a Bancos FISO,Semanal,Jefe,Erica Isidoro,NO,NO,N/A,0%,2,0,2
+Pagos,OPERATIVO,Factoraje,Vencimientos a Bancos FISO,Semanal,Jefe,Dhamar Perez,NO,NO,N/A,0%,2,0,2
+Pagos,OPERATIVO,Factoraje,Pagos - Factoraje SANTANDER,Semanal,Jefe,Erica Isidoro,SI,SI,TERCERO,100%,10,10,0
+Pagos,OPERATIVO,Factoraje,Pagos - Factoraje SANTANDER,Semanal,Jefe,Dhamar Perez,SI,SI,TERCERO,100%,10,10,0
+Pagos,OPERATIVO,Factoraje,Archivado Letras de Nuevo Factoraje,Semanal,Jefe,Erica Isidoro,SI,SI,TERCERO,100%,4,4,0
+Pagos,OPERATIVO,Factoraje,Archivado Letras de Nuevo Factoraje,Semanal,Jefe,Dhamar Perez,SI,SI,TERCERO,100%,4,4,0
+Pagos,OPERATIVO,Factoraje,Generacion de cambios Vias de Pago,Diaria,Jefe,Erica Isidoro,SI,SI,DIP,100%,8,8,0
+Pagos,OPERATIVO,Factoraje,Generacion de cambios Vias de Pago,Diaria,Jefe,Dhamar Perez,SI,SI,DIP,100%,8,8,0
+Pagos,OPERATIVO,Factoraje,Moasoc y conciliación de cierre de mes,Diaria,Jefe,Erica Isidoro,SI,SI,DIP,100%,2,2,0
+Pagos,OPERATIVO,Factoraje,Moasoc y conciliación de cierre de mes,Diaria,Jefe,Dhamar Perez,SI,SI,DIP,100%,2,2,0
+Pagos,OPERATIVO,Factoraje,Recepcion de REP's Santander - Factoraje,Diaria,Jefe,Dhamar Perez,SI,SI,TERCERO,100%,6,6,0
+Pagos,OPERATIVO,Complementos de pago,Complementos de pago 22980017,Semanal,Jefe,Erica Isidoro,SI,SI,TERCERO,60%,2,1.2,0.8
+Pagos,OPERATIVO,Complementos de pago,Complementos de pago 22980017,Semanal,Jefe,Dhamar Perez,SI,SI,TERCERO,60%,2,1.2,0.8
+Pagos,OPERATIVO,KPI y Reportes,Compras Ponderadas,Mensual,Jefe,Norma Hernandez,NO,SI,N/A,0%,1,0,1
+Pagos,OPERATIVO,KPI y Reportes,Actualizacion de Drive de Bloqueos E,Semanal,Jefe,Norma Hernandez,NO,SI,N/A,0%,4,0,4
+Pagos,OPERATIVO,KPI y Reportes,Data Studio _ Tablero de Bloqueos,Semanal,Jefe,Norma Hernandez,NO,SI,N/A,0%,4,0,4
+Pagos,OPERATIVO,KPI y Reportes,Reporte de 50 principales proveedores (Bolsa),Trimestral,Jefe,Norma Hernandez,NO,SI,N/A,0%,1,0,1
+Pagos,OPERATIVO,KPI y Reportes,Reporte de Compras Ponderadas,Mensual,Jefe,Norma Hernandez,NO,SI,N/A,0%,2,0,2
+Pagos,SEGUIMIENTO / GESTIÓN,Iniciativas y proyectos,Proyectos e iniciativa de Pagos,Semanal,Jefe,Norma Hernandez,NO,NO,N/A,0%,31,0,31
+Pagos,SEGUIMIENTO / GESTIÓN,Iniciativas y proyectos,Proyectos e iniciativa de Control Interno,Semanal,Jefe,Norma Hernandez,NO,NO,N/A,0%,25,0,25
+Pagos,OPERATIVO,Complementos de pago,Cancelación de bonificaciones LIV & SBB (contabilización & ligado),Semanal,Jefe,Erica Isidoro,SI,SI,TERCERO,100%,4,4,0
+Pagos,OPERATIVO,Complementos de pago,Complementos de Pago Piezas y Pesos (contabilización & ligado),Semanal,Jefe,Erica Isidoro,NO,NO,N/A,0%,2,0,2
+Pagos,SEGUIMIENTO / GESTIÓN,Iniciativas y proyectos,Proyectos e iniciativa de Control Interno,Semanal,Especialista,Susana Espinosa,NO,NO,N/A,0%,18,0,18
+REP & NC,OPERATIVO,Auditorías y revisiones,Entregas de Auditoria SAT,Mensual,Jefe,Uriel Alejandro,SI,SI,TERCERO,50%,80,40,40
+REP & NC,OPERATIVO,Auditorías y revisiones,Entregas de Auditoria PWC,Mensual,Jefe,Uriel Alejandro,SI,SI,TERCERO,50%,30,15,15
+REP & NC,OPERATIVO,Auditorías y revisiones,Siniestros,Mensual,Jefe,Uriel Alejandro,NO,NO,N/A,0%,6,0,6
+REP & NC,OPERATIVO,Contabilidad electrónica CXP,Desligue de XML,Semanal,Jefe,Uriel Alejandro,NO,SI,N/A,50%,20,10,10
+REP & NC,OPERATIVO,Ligado REPs y notas de credito,Reporte de REP´s Pendientes a Proveedores,Quincenal,Jefe,Uriel Alejandro,SI,SI,TERCERO,100%,90,90,0
+REP & NC,OPERATIVO,Ligado REPs y notas de credito,Analisis y recuperación de CFDIs de NC y REPs de proveedores pendientes de cumplimiento,Diaria,Jefe,Uriel Alejandro,NO,SI,N/A,0%,40,0,40
+REP & NC,OPERATIVO,Ligado REPs y notas de credito,"Armado y envio de reportes de proveedores Bloqueados por REP (mercaderias / suburbia)
+",Semanal,Jefe,Uriel Alejandro,SI,SI,DIP,50%,8,4,4
+REP & NC,OPERATIVO,Ligado REPs y notas de credito,Actualizacion de archivo Impacto Fiscal,Semanal,Jefe,Uriel Alejandro,SI,SI,TERCERO,50%,8,4,4
+REP & NC,OPERATIVO,Ligado REPs y notas de credito,Carga Masiva REPS,Semanal,Jefe,Uriel Alejandro,SI,SI,DIP,80%,30,24,6
+REP & NC,SEGUIMIENTO / GESTIÓN,Capacitaciones,Capacitaciones Portal EU para REP´S,Quincenal,Jefe,Uriel Alejandro,NO,NO,N/A,0%,6,0,6
+REP & NC,SEGUIMIENTO / GESTIÓN,Iniciativas y proyectos,"Proyectos e Iniciativas
+-Generación de ERF´s
+-Participación en Pruebas
+-Automatizaciones (Dalis,Macros, DIPS)",Semanal,Jefe,Uriel Alejandro,NO,NO,N/A,0%,30,0,30
+REP & NC,SEGUIMIENTO / GESTIÓN,Otra operación CXP,"Otras actividades Operativas
+-Revisión de Correos
+-Seguimiento a Incidencias
+-Atención Usuarios
+-Generación de Reportes de control
+-Reuniones",Diaria,Jefe,Uriel Alejandro,NO,SI,N/A,0%,25,0,25
+REP & NC,OPERATIVO,Ligado REPs y notas de credito,Analisis y recuperación de CFDIs de NC y REPs de proveedores pendientes de cumplimiento,Diaria,Especialista,Ramon Carrillo,NO,SI,N/A,0%,90,0,90
+REP & NC,OPERATIVO,Ligado REPs y notas de credito,Bloqueo y Desbloqueo de proveedores por REP,Diaria,Especialista,Ramon Carrillo,SI,SI,DALI,25%,20,5,15
+REP & NC,OPERATIVO,Ligado REPs y notas de credito,Carga Masiva de NC,Semanal,Especialista,Ramon Carrillo,SI,SI,TERCERO,80%,100,80,20
+REP & NC,OPERATIVO,Ligado REPs y notas de credito,Reporte de REP´s Pendientes a Proveedores,Quincenal,Especialista,Ramon Carrillo,NO,SI,N/A,0%,10,0,10
+REP & NC,SEGUIMIENTO / GESTIÓN,Iniciativas y proyectos,"Proyectos e Iniciativas
+-Generación de ERF´s
+-Participación en Pruebas
+-Automatizaciones (Dalis,Macros, DIPS)",Semanal,Especialista,Ramon Carrillo,NO,NO,N/A,0%,10,0,10
+REP & NC,SEGUIMIENTO / GESTIÓN,Otra operación CXP,"Otras actividades Operativas
+-Revisión de Correos
+-Seguimiento a Incidencias
+-Atención Usuarios
+-Generación de Reportes de control
+-Reuniones",Diaria,Especialista,Ramon Carrillo,NO,SI,N/A,0%,40,0,40

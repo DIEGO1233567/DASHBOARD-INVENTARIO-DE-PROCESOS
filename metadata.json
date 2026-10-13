@@ -1,0 +1,6 @@
+{
+  "name": "Tablero de Automatización y Carga Operativa",
+  "description": "Tablero dinámico de KPIs de automatización, digitalización y carga operativa por gerencia conectado en tiempo real con Google Drive y Google Sheets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
