@@ -1,27 +1,34 @@
 import React, { useState, useMemo } from 'react';
 import {
   FileSpreadsheet,
-  RotateCcw,
-  Download,
   SlidersHorizontal,
-  ArrowUpRight,
   Layers,
   ListChecks,
   Clock,
   Zap,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  ExternalLink,
 } from 'lucide-react';
 import { INITIAL_RECORDS } from './data/initialData';
 import { ProcessRecord, SheetSyncConfig } from './types/sheets';
 import {
   computeGerenciaSummaries,
   computeColaboradorSummaries,
-  exportRecordsToMultiSheetXlsx,
+  convertActivitiesToRecords,
   normalizeNumber,
   formatThousands,
   formatHours,
 } from './utils/sheetsParser';
 import { exportExecutiveSummaryXlsx } from './utils/executiveExport';
-import { ConnectSheetsModal } from './components/ConnectSheetsModal';
+import {
+  DEFAULT_SPREADSHEET_ID,
+  fetchSpreadsheetData,
+  GoogleApiDisabledError,
+  requestGoogleAccessToken,
+} from './services/googleDriveService';
 import { GerenciasChartSection } from './components/GerenciasChartSection';
 import { GerenciaPivotSection } from './components/GerenciaPivotSection';
 import { ColaboradoresByGerenciaSection } from './components/ColaboradoresByGerenciaSection';
@@ -72,8 +79,14 @@ export default function App() {
   });
 
   const [selectedGerencia, setSelectedGerencia] = useState<string>('ALL');
-  const [isConnectModalOpen, setIsConnectModalOpen] = useState<boolean>(false);
   const [isExportingExecutive, setIsExportingExecutive] = useState<boolean>(false);
+  const [isSyncingGoogle, setIsSyncingGoogle] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<{
+    type: 'success' | 'error' | 'info';
+    text: string;
+    actionUrl?: string;
+    actionLabel?: string;
+  } | null>(null);
   const [syncConfig, setSyncConfig] = useState<SheetSyncConfig>({
     spreadsheetUrl: '',
     spreadsheetId: '',
@@ -173,25 +186,86 @@ export default function App() {
     };
   }, [scopedRecords]);
 
-  const handleImportSuccess = (
-    importedRecords: ProcessRecord[],
-    config: SheetSyncConfig,
-    mode: 'replace' | 'merge'
-  ) => {
-    let finalRecords: ProcessRecord[];
-    if (mode === 'replace') {
-      finalRecords = importedRecords;
-      setSelectedGerencia('ALL');
-    } else {
-      finalRecords = [...records, ...importedRecords];
-    }
-    setRecords(finalRecords);
-    setSyncConfig(config);
-    try {
-      localStorage.setItem('liverpool_dashboard_records_v5', JSON.stringify(finalRecords));
-    } catch (e) {
-      console.warn('Error caching records', e);
-    }
+  const handleDirectGoogleConnect = () => {
+    if (isSyncingGoogle) return;
+    setIsSyncingGoogle(true);
+    setSyncStatus({
+      type: 'info',
+      text: 'Abriendo selector de cuentas de Google...',
+    });
+
+    requestGoogleAccessToken(
+      async (accessToken: string) => {
+        try {
+          setSyncStatus({
+            type: 'info',
+            text: 'Conexión autorizada con Google. Descargando datos de las gerencias...',
+          });
+
+          const sheetId = DEFAULT_SPREADSHEET_ID;
+          const result = await fetchSpreadsheetData(accessToken, sheetId);
+          if (result.activities && result.activities.length > 0) {
+            const imported = convertActivitiesToRecords(result.activities);
+            setSelectedGerencia('ALL');
+            setRecords(imported);
+            setSyncConfig({
+              spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${sheetId}/edit`,
+              spreadsheetId: sheetId,
+              sheetNames: result.sheetNames,
+              lastSyncedAt: new Date().toLocaleTimeString('es-MX', {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              sourceType: 'google-sheets-url',
+            });
+            try {
+              localStorage.setItem('liverpool_dashboard_records_v5', JSON.stringify(imported));
+            } catch (e) {
+              console.warn('Error saving to storage', e);
+            }
+            setSyncStatus({
+              type: 'success',
+              text: `¡Sincronización exitosa! Se cargaron ${imported.length} actividades en ${result.sheetNames.length} gerencias.`,
+            });
+            setTimeout(() => {
+              setSyncStatus(null);
+            }, 6000);
+          } else {
+            throw new Error('No se encontraron actividades con las columnas especificadas.');
+          }
+        } catch (err: any) {
+          console.error(err);
+          if (err instanceof GoogleApiDisabledError) {
+            setSyncStatus({
+              type: 'error',
+              text: err.message,
+              actionUrl: err.enableUrl,
+              actionLabel: 'Habilitar Google Sheets API en Cloud Console',
+            });
+          } else {
+            setSyncStatus({
+              type: 'error',
+              text: `Error al leer hojas: ${err?.message || 'Error de permisos o formato.'}`,
+            });
+          }
+        } finally {
+          setIsSyncingGoogle(false);
+        }
+      },
+      (errorMsg: string) => {
+        setIsSyncingGoogle(false);
+        setSyncStatus({
+          type: 'error',
+          text:
+            errorMsg.includes('popup') || errorMsg.includes('cancel')
+              ? 'Ventana de inicio de sesión de Google cancelada o cerrada.'
+              : errorMsg,
+        });
+        setTimeout(() => {
+          setSyncStatus(null);
+        }, 5000);
+      }
+    );
   };
 
   const handleAddSingleRecord = (newRec: ProcessRecord) => {
@@ -203,21 +277,6 @@ export default function App() {
         console.warn('Error caching records', e);
       }
       return updated;
-    });
-  };
-
-  const handleResetDemo = () => {
-    localStorage.removeItem('liverpool_dashboard_records_v5');
-    localStorage.removeItem('liverpool_dashboard_records_v4');
-    localStorage.removeItem('liverpool_dashboard_activities_v3');
-    setRecords(INITIAL_RECORDS);
-    setSelectedGerencia('ALL');
-    setSyncConfig({
-      spreadsheetUrl: '',
-      spreadsheetId: '',
-      sheetNames: DEFAULT_GERENCIA_SHEETS,
-      lastSyncedAt: null,
-      sourceType: 'demo',
     });
   };
 
@@ -233,7 +292,7 @@ export default function App() {
           Tablero Inventario de Procesos
         </a>
 
-        {/* Zone 2: 4 concise single-line text navigation links */}
+        {/* Zone 2: Navigation links */}
         <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-slate-300">
           <a
             href="#resumen-gerencial"
@@ -247,35 +306,79 @@ export default function App() {
           >
             Carga por Colaborador
           </a>
-          <a
-            href="#matriz-dinamica"
-            className="hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
-          >
-            Matriz Dinámica
-          </a>
-          <a
-            href="#catalogo-actividades"
-            className="hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
-          >
-            Catálogo de Actividades
-          </a>
         </nav>
 
         {/* Zone 3: 1 primary action */}
         <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
-            onClick={() => setIsConnectModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-md transition-colors whitespace-nowrap shrink-0 shadow-xs cursor-pointer"
+            onClick={handleDirectGoogleConnect}
+            disabled={isSyncingGoogle}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800/80 rounded-md transition-colors whitespace-nowrap shrink-0 shadow-xs cursor-pointer disabled:cursor-wait"
+            title="Iniciar sesión directamente con Google y sincronizar las hojas en tiempo real"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            Conectar Google Sheets
+            {isSyncingGoogle ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Conectando con Google...</span>
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Conectar Google Sheets</span>
+              </>
+            )}
           </button>
         </div>
       </header>
 
       {/* Main Executive Workspace */}
       <main id="top" className="flex-1 max-w-[1440px] w-full mx-auto px-6 py-6 space-y-6">
+        {/* Google Sync Status Notification Banner */}
+        {syncStatus && (
+          <div
+            className={`rounded-lg p-3 text-xs flex items-center justify-between gap-3 border shadow-xs transition-all ${
+              syncStatus.type === 'success'
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                : syncStatus.type === 'error'
+                ? 'bg-rose-50 border-rose-300 text-rose-900'
+                : 'bg-blue-50 border-blue-300 text-blue-900'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              {syncStatus.type === 'success' && (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              )}
+              {syncStatus.type === 'error' && (
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              {syncStatus.type === 'info' && (
+                <RefreshCw className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+              )}
+              <span className="font-medium">{syncStatus.text}</span>
+              {syncStatus.actionUrl && (
+                <a
+                  href={syncStatus.actionUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 font-bold text-rose-800 underline hover:text-rose-950 ml-1"
+                >
+                  {syncStatus.actionLabel || 'Ver detalles'}
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setSyncStatus(null)}
+              className="p-1 rounded hover:bg-black/5 text-slate-500 hover:text-slate-800 cursor-pointer"
+              title="Cerrar aviso"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Context & Connection Bar */}
         <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-xs">
           <div className="space-y-1">
@@ -306,7 +409,7 @@ export default function App() {
             </h1>
           </div>
 
-          {/* Workspace Toolbar Controls */}
+          {/* Workspace Toolbar Controls - Solo selector de vista y Descargar Resumen .xlsx */}
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-md border border-slate-200 text-xs">
               <SlidersHorizontal className="w-3.5 h-3.5 text-blue-900" />
@@ -328,16 +431,7 @@ export default function App() {
               </select>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsConnectModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-blue-900 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              Pegar Liga o Subir .XLSX
-            </button>
-
-            {/* Botón Descargar Resumen Ejecutivo (.xlsx) con KPIs de inicio, gráfica y Sección 1 */}
+            {/* Botón Descargar Resumen Ejecutivo (.xlsx) desde encabezados hasta Sección 2 (sin Sec 3 ni 4) */}
             <button
               type="button"
               disabled={isExportingExecutive}
@@ -347,8 +441,9 @@ export default function App() {
                   await exportExecutiveSummaryXlsx(
                     kpiMetrics,
                     allGerenciaSummaries,
+                    colaboradorSummaries,
                     selectedGerencia,
-                    `Resumen_Ejecutivo_KPIs_y_Gerencias_${selectedGerencia === 'ALL' ? 'Global' : selectedGerencia.replace(/\s+/g, '_')}.xlsx`
+                    `Resumen_Ejecutivo_Encabezados_a_Sec2_${selectedGerencia === 'ALL' ? 'Global' : selectedGerencia.replace(/\s+/g, '_')}.xlsx`
                   );
                 } catch (err) {
                   console.error('Error al exportar resumen ejecutivo:', err);
@@ -357,37 +452,11 @@ export default function App() {
                 }
               }}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-950 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 rounded-md transition-colors whitespace-nowrap shrink-0 shadow-2xs cursor-pointer disabled:opacity-60"
-              title="Descargar libro Excel (.xlsx) con los cuadros de KPIs de inicio, la gráfica comparativa y la tabla de Sección 1"
+              title="Descargar libro Excel (.xlsx) con lo más representativo desde los encabezados hasta la Sección 2 (sin Secciones 3 ni 4)"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
               {isExportingExecutive ? 'Generando .xlsx...' : 'Descargar Resumen .xlsx'}
             </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                exportRecordsToMultiSheetXlsx(
-                  records,
-                  'Reporte_Ejecutivo_Gerencias.xlsx'
-                )
-              }
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-              title="Descargar libro Excel con pestañas por gerencia"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Descargar .XLSX
-            </button>
-
-            {syncConfig.sourceType !== 'demo' && (
-              <button
-                type="button"
-                onClick={handleResetDemo}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Restaurar Base Ejemplo
-              </button>
-            )}
           </div>
         </div>
 
@@ -594,36 +663,15 @@ export default function App() {
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={() => setIsConnectModalOpen(true)}
-              className="text-blue-800 hover:underline font-medium cursor-pointer"
+              onClick={handleDirectGoogleConnect}
+              disabled={isSyncingGoogle}
+              className="text-blue-800 hover:underline font-medium cursor-pointer disabled:opacity-60"
             >
-              Conectar Liga de Google Sheets
-            </button>
-            <span>·</span>
-            <button
-              type="button"
-              onClick={() =>
-                exportRecordsToMultiSheetXlsx(
-                  records,
-                  'Consolidado_Eficiencia_Operativa.xlsx'
-                )
-              }
-              className="text-blue-800 hover:underline font-medium cursor-pointer"
-            >
-              Exportar Libro .XLSX
+              {isSyncingGoogle ? 'Conectando con Google...' : 'Sincronizar Google Sheets'}
             </button>
           </div>
         </div>
       </footer>
-
-      {/* Google Sheets Connection & Workbook Upload Modal */}
-      <ConnectSheetsModal
-        isOpen={isConnectModalOpen}
-        onClose={() => setIsConnectModalOpen(false)}
-        currentRecords={records}
-        syncConfig={syncConfig}
-        onImportSuccess={handleImportSuccess}
-      />
     </div>
   );
 }

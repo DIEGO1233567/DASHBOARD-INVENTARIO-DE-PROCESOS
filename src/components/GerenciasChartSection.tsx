@@ -96,10 +96,10 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
     return Math.ceil(rawMax / step) * step;
   }, [sortedSummaries]);
 
-  // SVG Chart Geometry
-  const svgWidth = 980;
-  const svgHeight = 430;
-  const padding = { top: 35, right: 65, bottom: 130, left: 75 };
+  // SVG Chart Geometry with generous padding to prevent any clipping
+  const svgWidth = 1060;
+  const svgHeight = 480;
+  const padding = { top: 35, right: 80, bottom: 160, left: 80 };
   const chartWidth = svgWidth - padding.left - padding.right;
   const chartHeight = svgHeight - padding.top - padding.bottom;
 
@@ -323,7 +323,7 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
               id="gerencias-chart-svg"
               viewBox={`0 0 ${svgWidth} ${svgHeight}`}
               className="w-full h-auto select-none overflow-visible"
-              style={{ maxHeight: '460px' }}
+              style={{ maxHeight: '520px' }}
             >
               <defs>
                 {/* Gradients for bars */}

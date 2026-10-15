@@ -116,14 +116,14 @@ export function GerenciaPivotSection({
                 <th className="py-3 px-3 text-center font-medium tracking-wide text-sky-200">
                   Colaboradores
                 </th>
-                <th className="py-3 px-3 text-right font-medium tracking-wide">
-                  Horas Totales
+                <th className="py-3 px-3 text-right font-medium tracking-wide text-sky-200">
+                  Horas Auto.
                 </th>
-                <th className="py-3 px-3 text-right font-medium tracking-wide">
+                <th className="py-3 px-3 text-right font-medium tracking-wide text-amber-300">
                   Horas Manuales
                 </th>
                 <th className="py-3 px-3 text-right font-medium tracking-wide">
-                  Horas Auto.
+                  Horas Totales
                 </th>
                 <th className="py-3 px-4 text-center font-medium tracking-wide w-28">
                   Acción
@@ -213,19 +213,19 @@ export function GerenciaPivotSection({
                           </button>
                         </td>
 
-                        {/* Horas Totales */}
-                        <td className="py-3 px-3 text-right font-mono tabular-nums font-semibold text-slate-900">
-                          {formatHours(summary.horasTotales)} h
-                        </td>
-
-                        {/* Horas Manuales */}
-                        <td className="py-3 px-3 text-right font-mono tabular-nums text-slate-700">
-                          {formatHours(summary.horasManuales)} h
-                        </td>
-
                         {/* Horas Automatizadas */}
                         <td className="py-3 px-3 text-right font-mono tabular-nums font-semibold text-blue-800">
                           {formatHours(summary.horasAutomatizadas)} h
+                        </td>
+
+                        {/* Horas Manuales */}
+                        <td className="py-3 px-3 text-right font-mono tabular-nums font-bold text-amber-700">
+                          {formatHours(summary.horasManuales)} h
+                        </td>
+
+                        {/* Horas Totales */}
+                        <td className="py-3 px-3 text-right font-mono tabular-nums font-semibold text-slate-900">
+                          {formatHours(summary.horasTotales)} h
                         </td>
 
                         {/* Botón Acción */}
@@ -273,9 +273,9 @@ export function GerenciaPivotSection({
                                       <th className="py-2 px-3 text-left">Proceso Macro</th>
                                       <th className="py-2 px-3 text-center" title="Actividades únicas evaluadas en este proceso macro">Actividades Únicas</th>
                                       <th className="py-2 px-3 text-center">Colaboradores</th>
+                                      <th className="py-2 px-3 text-right text-blue-900 font-semibold">Horas Auto.</th>
+                                      <th className="py-2 px-3 text-right text-amber-800 font-semibold">Horas Manuales</th>
                                       <th className="py-2 px-3 text-right">Horas Totales</th>
-                                      <th className="py-2 px-3 text-right">Horas Manuales</th>
-                                      <th className="py-2 px-3 text-right">Horas Auto.</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100">
@@ -311,14 +311,14 @@ export function GerenciaPivotSection({
                                             <td className="py-2 px-3 text-center font-mono text-slate-600">
                                               {formatThousands(macro.colaboradoresCount)}
                                             </td>
-                                            <td className="py-2 px-3 text-right font-mono font-medium text-slate-900">
-                                              {formatHours(macro.horasTotales)} h
-                                            </td>
-                                            <td className="py-2 px-3 text-right font-mono text-slate-600">
-                                              {formatHours(macro.horasManuales)} h
-                                            </td>
                                             <td className="py-2 px-3 text-right font-mono font-semibold text-blue-800">
                                               {formatHours(macro.horasAutomatizadas)} h
+                                            </td>
+                                            <td className="py-2 px-3 text-right font-mono font-bold text-amber-700">
+                                              {formatHours(macro.horasManuales)} h
+                                            </td>
+                                            <td className="py-2 px-3 text-right font-mono font-medium text-slate-900">
+                                              {formatHours(macro.horasTotales)} h
                                             </td>
                                           </tr>
 
@@ -343,9 +343,9 @@ export function GerenciaPivotSection({
                                                           <th className="py-1.5 px-2 text-center">Frecuencia</th>
                                                           <th className="py-1.5 px-2 text-center">¿Auto.?</th>
                                                           <th className="py-1.5 px-2 text-left">Herramienta</th>
+                                                          <th className="py-1.5 px-2 text-right text-blue-900 font-semibold">Horas Auto.</th>
+                                                          <th className="py-1.5 px-2 text-right text-amber-800 font-semibold">Horas Manuales</th>
                                                           <th className="py-1.5 px-2 text-right">Horas Totales</th>
-                                                          <th className="py-1.5 px-2 text-right">Horas Manuales</th>
-                                                          <th className="py-1.5 px-2 text-right">Horas Auto.</th>
                                                           <th className="py-1.5 px-2 text-right bg-amber-50/60 text-amber-900 border-l border-amber-100 font-semibold whitespace-nowrap" title="Porcentaje de la actividad respecto a la carga del colaborador (horas manuales)">
                                                             % Carga Colab. (Manual)
                                                           </th>
@@ -386,14 +386,14 @@ export function GerenciaPivotSection({
                                                             <td className="py-1.5 px-2 text-slate-600 whitespace-nowrap">
                                                               {act.herramienta || 'N/A'}
                                                             </td>
-                                                            <td className="py-1.5 px-2 text-right font-mono font-medium text-slate-900 whitespace-nowrap">
-                                                              {formatHours(act.horasMensualesTotal || act.horasMensualesActividad || 0)} h
-                                                            </td>
-                                                            <td className="py-1.5 px-2 text-right font-mono text-slate-600 whitespace-nowrap">
-                                                              {formatHours(act.horasManualesTotal || act.horasManuales || 0)} h
-                                                            </td>
                                                             <td className="py-1.5 px-2 text-right font-mono font-semibold text-blue-800 whitespace-nowrap">
                                                               {formatHours(act.horasMensualesAutomatizadas || 0)} h
+                                                            </td>
+                                                            <td className="py-1.5 px-2 text-right font-mono font-bold text-amber-700 whitespace-nowrap">
+                                                              {formatHours(actManual)} h
+                                                            </td>
+                                                            <td className="py-1.5 px-2 text-right font-mono font-medium text-slate-900 whitespace-nowrap">
+                                                              {formatHours(act.horasMensualesTotal || act.horasMensualesActividad || 0)} h
                                                             </td>
                                                             <td className="py-1.5 px-2 text-right font-mono font-bold text-amber-900 whitespace-nowrap bg-amber-50/30 border-l border-amber-100/60 tabular-nums">
                                                               <span className="inline-flex items-center gap-1 justify-end">
@@ -467,8 +467,8 @@ export function GerenciaPivotSection({
                       <th className="py-2.5 px-3 text-center">% de Jornada (152h)</th>
                       <th className="py-2.5 px-3 text-center">Tareas Manuales</th>
                       <th className="py-2.5 px-3 text-center">Tareas Auto.</th>
-                      <th className="py-2.5 px-3 text-right">Horas Manuales</th>
-                      <th className="py-2.5 px-3 text-right">Horas Auto.</th>
+                      <th className="py-2.5 px-3 text-right text-blue-900 font-semibold">Horas Auto.</th>
+                      <th className="py-2.5 px-3 text-right text-amber-800 font-semibold">Horas Manuales</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -520,11 +520,11 @@ export function GerenciaPivotSection({
                                 {formatThousands(colab.tareasAutomatizadas)}
                               </span>
                             </td>
-                            <td className="py-2.5 px-3 text-right font-mono text-slate-700">
-                              {formatHours(colab.horasManuales)} h
-                            </td>
                             <td className="py-2.5 px-3 text-right font-mono font-semibold text-blue-800">
                               {formatHours(colab.horasAutomatizadas)} h
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-700">
+                              {formatHours(colab.horasManuales)} h
                             </td>
                           </tr>
 

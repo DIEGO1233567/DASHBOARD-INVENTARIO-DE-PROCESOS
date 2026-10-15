@@ -7,6 +7,8 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Sliders,
   CheckCircle2,
   X,
@@ -26,13 +28,16 @@ export function DynamicCatalogSection({
   selectedGerencia,
   onAddRecord,
 }: DynamicCatalogSectionProps) {
-  const [activeTab, setActiveTab] = useState<'pivot' | 'master'>('master');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filterDigitalizado, setFilterDigitalizado] = useState<string>('ALL');
   const [filterAutomatizable, setFilterAutomatizable] = useState<string>('ALL');
   const [filterTipoProceso, setFilterTipoProceso] = useState<string>('ALL');
   const [page, setPage] = useState<number>(1);
   const pageSize = 25;
+
+  // Visibility states: Section 03 open by default; Section 04 kept HIDDEN by default until clicked
+  const [isSection3Open, setIsSection3Open] = useState<boolean>(true);
+  const [isSection4Open, setIsSection4Open] = useState<boolean>(false);
 
   // New Record Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
@@ -162,70 +167,144 @@ export function DynamicCatalogSection({
 
   return (
     <div className="space-y-6">
-      {/* Target for Header anchor #matriz-dinamica */}
-      <div id="matriz-dinamica" className="scroll-mt-20" />
-
-      {/* Target for Header anchor #catalogo-actividades */}
-      <div id="catalogo-actividades" className="scroll-mt-20" />
-
-      <section className="space-y-4">
-        {/* Section Header */}
+      {/* Sección 03: Matriz Dinámica Pivot por Macroproceso */}
+      <section id="matriz-dinamica" className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 text-[11px] font-bold tracking-wider uppercase bg-blue-100 text-blue-900 rounded">
-                Sección 03 & 04
+              <span className="px-2 py-0.5 text-[11px] font-bold tracking-wider uppercase bg-blue-100 text-blue-900 rounded font-mono">
+                Sección 03
               </span>
               <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                <Table className="w-5 h-5 text-blue-800" />
-                Matriz Dinámica y Catálogo Maestro (14 Columnas)
+                <Layers className="w-5 h-5 text-blue-800" />
+                Matriz Dinámica Pivot por Macroproceso
               </h2>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Exploración detallada de todas las filas y columnas del Google Sheets corporativo.
+              Consolidación de carga horaria, volumen de actividades y nivel de automatización agrupado por macroproceso ({formatThousands(pivotByMacro.length)} macroprocesos).
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* View Switcher */}
-            <div className="flex bg-slate-200 p-0.5 rounded-lg text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setActiveTab('master')}
-                className={`px-3 py-1.5 rounded-md transition-colors ${
-                  activeTab === 'master'
-                    ? 'bg-white text-slate-900 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Catálogo 14 Columnas ({formatThousands(filteredRecords.length)})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('pivot')}
-                className={`px-3 py-1.5 rounded-md transition-colors ${
-                  activeTab === 'pivot'
-                    ? 'bg-white text-slate-900 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Matriz Pivot por Macro ({formatThousands(pivotByMacro.length)})
-              </button>
-            </div>
-
-            {/* Add Record Button */}
-            <button
-              type="button"
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-900 hover:bg-blue-800 rounded-md transition-colors whitespace-nowrap"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Nueva Actividad
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsSection3Open((prev) => !prev)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-md transition-colors cursor-pointer w-fit shadow-2xs"
+            title={isSection3Open ? 'Ocultar Sección 03' : 'Mostrar Sección 03'}
+          >
+            <span className="text-[11px] font-medium text-slate-600">
+              {isSection3Open ? 'Ocultar' : 'Mostrar'}
+            </span>
+            {isSection3Open ? (
+              <ChevronUp className="w-4 h-4 text-slate-700" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-blue-900" />
+            )}
+          </button>
         </div>
 
-        {/* Filters Toolbar */}
+        {isSection3Open && (
+          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-900 text-white font-semibold border-b border-slate-800">
+                    <th className="py-3 px-4 font-medium tracking-wide">Proceso Macro</th>
+                    <th className="py-3 px-3 font-medium tracking-wide">Gerencia</th>
+                    <th className="py-3 px-3 text-center font-medium tracking-wide">Actividades</th>
+                    <th className="py-3 px-3 text-center font-medium tracking-wide">Colaboradores</th>
+                    <th className="py-3 px-3 text-right font-medium tracking-wide">Horas Totales</th>
+                    <th className="py-3 px-3 text-right font-medium tracking-wide">Horas Manuales</th>
+                    <th className="py-3 px-3 text-right font-medium tracking-wide">Horas Auto.</th>
+                    <th className="py-3 px-4 text-center font-medium tracking-wide min-w-[140px]">
+                      % Automatizado
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {pivotByMacro.map((item) => (
+                    <tr key={item.macro} className="hover:bg-slate-50">
+                      <td className="py-3 px-4 font-bold text-slate-900">{item.macro}</td>
+                      <td className="py-3 px-3 text-slate-700">{item.gerencia}</td>
+                      <td className="py-3 px-3 text-center font-mono font-bold text-blue-950">
+                        {formatThousands(item.tareasCount)}
+                      </td>
+                      <td className="py-3 px-3 text-center font-mono text-slate-600">
+                        {formatThousands(item.colaboradoresCount)}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
+                        {formatHours(item.totalHoras)} h
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono text-slate-700">
+                        {formatHours(item.totalManuales)} h
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono font-semibold text-blue-800">
+                        {formatHours(item.totalAuto)} h
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 flex-1 bg-slate-200 rounded-full overflow-hidden">
+                            <div
+                              style={{ width: `${item.pctAuto}%` }}
+                              className="bg-blue-700 h-full"
+                            />
+                          </div>
+                          <span className="font-mono tabular-nums text-[11px] font-bold text-slate-800 w-10 text-right">
+                            {formatThousands(item.pctAuto, 1)}%
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Sección 04: Catálogo Maestro de Actividades (14 Columnas) - Mantenida oculta por defecto */}
+      <section id="catalogo-actividades" className="space-y-4">
+        {isSection4Open ? (
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 text-[11px] font-bold tracking-wider uppercase bg-blue-100 text-blue-900 rounded font-mono">
+                    Sección 04
+                  </span>
+                  <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                    <Table className="w-5 h-5 text-blue-800" />
+                    Catálogo Maestro de Actividades (14 Columnas)
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Exploración detallada de todas las filas y columnas operativas del Google Sheets ({formatThousands(filteredRecords.length)} actividades).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-900 hover:bg-blue-800 rounded-md transition-colors whitespace-nowrap cursor-pointer shadow-2xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Nueva Actividad
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSection4Open(false)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:text-slate-900 rounded-md transition-colors whitespace-nowrap cursor-pointer shadow-2xs"
+                  title="Ocultar Sección 04"
+                >
+                  <span className="text-[11px] font-medium text-slate-600 hidden sm:inline">
+                    Ocultar Sección 04
+                  </span>
+                  <ChevronUp className="w-4 h-4 text-slate-700" />
+                </button>
+              </div>
+            </div>
+            {/* Filters Toolbar */}
         <div className="bg-white border border-slate-200 rounded-lg p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
           {/* Search */}
           <div className="relative w-full sm:w-80">
@@ -295,9 +374,8 @@ export function DynamicCatalogSection({
           </div>
         </div>
 
-        {/* TAB 1: 14-Column Master Sheet */}
-        {activeTab === 'master' && (
-          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
+        {/* 14-Column Master Sheet Table */}
+        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -439,64 +517,45 @@ export function DynamicCatalogSection({
               </div>
             </div>
           </div>
-        )}
+        </>
+      ) : (
+          /* Estado Oculto de la Sección 04 - Haz clic para abrir la información */
+          <div
+            onClick={() => setIsSection4Open(true)}
+            className="bg-white border border-slate-300 hover:border-blue-400 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-700 shadow-2xs cursor-pointer transition-colors group"
+          >
+            <div className="flex items-center gap-3">
+              <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-900 font-bold font-mono text-[11px] tracking-wide uppercase border border-blue-200">
+                Sección 04
+              </span>
+              <div>
+                <h3 className="font-bold text-slate-900 flex items-center gap-1.5 text-sm group-hover:text-blue-900">
+                  <Table className="w-4 h-4 text-blue-700" />
+                  Catálogo Maestro de Actividades (14 Columnas)
+                </h3>
+                <p className="text-slate-500 text-xs mt-0.5">
+                  El detalle de las <strong>{formatThousands(filteredRecords.length)}</strong> actividades está oculto. Haz clic para abrir la información.
+                </p>
+              </div>
+            </div>
 
-        {/* TAB 2: Dynamic Pivot View by Proceso Macro */}
-        {activeTab === 'pivot' && (
-          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-900 text-white font-semibold border-b border-slate-800">
-                    <th className="py-3 px-4 font-medium tracking-wide">Proceso Macro</th>
-                    <th className="py-3 px-3 font-medium tracking-wide">Gerencia</th>
-                    <th className="py-3 px-3 text-center font-medium tracking-wide">Actividades</th>
-                    <th className="py-3 px-3 text-center font-medium tracking-wide">Colaboradores</th>
-                    <th className="py-3 px-3 text-right font-medium tracking-wide">Horas Totales</th>
-                    <th className="py-3 px-3 text-right font-medium tracking-wide">Horas Manuales</th>
-                    <th className="py-3 px-3 text-right font-medium tracking-wide">Horas Auto.</th>
-                    <th className="py-3 px-4 text-center font-medium tracking-wide min-w-[140px]">
-                      % Automatizado
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {pivotByMacro.map((item) => (
-                    <tr key={item.macro} className="hover:bg-slate-50">
-                      <td className="py-3 px-4 font-bold text-slate-900">{item.macro}</td>
-                      <td className="py-3 px-3 text-slate-700">{item.gerencia}</td>
-                      <td className="py-3 px-3 text-center font-mono font-bold text-blue-950">
-                        {formatThousands(item.tareasCount)}
-                      </td>
-                      <td className="py-3 px-3 text-center font-mono text-slate-600">
-                        {formatThousands(item.colaboradoresCount)}
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
-                        {formatHours(item.totalHoras)} h
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono text-slate-700">
-                        {formatHours(item.totalManuales)} h
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono font-semibold text-blue-800">
-                        {formatHours(item.totalAuto)} h
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 flex-1 bg-slate-200 rounded-full overflow-hidden">
-                            <div
-                              style={{ width: `${item.pctAuto}%` }}
-                              className="bg-blue-700 h-full"
-                            />
-                          </div>
-                          <span className="font-mono tabular-nums text-[11px] font-bold text-slate-800 w-10 text-right">
-                            {formatThousands(item.pctAuto, 1)}%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-900 hover:bg-blue-800 rounded-md transition-colors whitespace-nowrap cursor-pointer shadow-2xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Nueva Actividad
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSection4Open(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 text-blue-900 border border-blue-200 hover:bg-blue-100 rounded-md font-semibold transition-colors cursor-pointer w-fit shadow-2xs"
+              >
+                <ChevronDown className="w-4 h-4 text-blue-900" />
+                Abrir Información ({formatThousands(filteredRecords.length)} actividades)
+              </button>
             </div>
           </div>
         )}

@@ -239,8 +239,9 @@ export function computeColaboradorSummaries(records: ProcessRecord[]): Colaborad
 
     const pctAutomatizado =
       horasTotales > 0 ? Number(((horasAutomatizadas / horasTotales) * 100).toFixed(1)) : 0;
+    // Carga laboral del colaborador basada en horas manuales sobre jornada de 152h
     const porcentajeJornada =
-      Number(((horasTotales / 152) * 100).toFixed(1));
+      Number(((horasManuales / 152) * 100).toFixed(1));
 
     const uniqueColabActs = new Set(
       items.map((it) => (it.actividadProceso || '').trim().toLowerCase())
@@ -263,8 +264,8 @@ export function computeColaboradorSummaries(records: ProcessRecord[]): Colaborad
     });
   }
 
-  // Sort by workload (hours) descending
-  return results.sort((a, b) => b.horasTotales - a.horasTotales);
+  // Sort by manual workload (hours) descending
+  return results.sort((a, b) => b.horasManuales - a.horasManuales);
 }
 
 /**
@@ -401,4 +402,37 @@ export function parsePastedTableText(text: string, defaultGerencia = 'Gerencia G
   }
 
   return records;
+}
+
+/**
+ * Converts ActivityItem array from googleDriveService into ProcessRecord array.
+ */
+export function convertActivitiesToRecords(acts: any[]): ProcessRecord[] {
+  return acts.map((a, idx) => {
+    const hTot = normalizeNumber(a.horasMensualesTotal != null ? a.horasMensualesTotal : a.horasMensualesActividad);
+    const hMan = normalizeNumber(a.horasManualesTotal != null ? a.horasManualesTotal : a.horasManuales);
+    const hAut = normalizeNumber(a.horasMensualesAutomatizadas);
+
+    return {
+      id: a.id || `rec-${idx}-${Date.now()}`,
+      gerencia: (a.gerencia || 'General').trim(),
+      areaSubArea: (a.areaSubArea || a.gerencia || 'General').trim(),
+      tipoProceso: a.tipoProceso || 'OPERATIVO',
+      procesoMacro: a.procesoMacro || 'General',
+      actividadProceso: a.actividadProceso || 'Actividad',
+      frecuencia: a.frecuencia || 'Mensual',
+      puesto: a.puesto || 'Especialista',
+      responsableFuncional: (a.responsableFuncional || 'Sin Asignar').replace(/\s+/g, ' ').trim(),
+      digitalizado: a.digitalizado === 'SÍ' || a.digitalizado === 'Sí' ? 'Sí' : 'No',
+      esAutomatizable: a.esAutomatizable === 'SÍ' || a.esAutomatizable === 'Sí' ? 'Sí' : 'No',
+      herramienta: a.herramienta || 'N/A',
+      porcentajeAutomatizado: typeof a.porcentajeAutomatizado === 'number' ? a.porcentajeAutomatizado : 0,
+      horasMensualesTotal: hTot,
+      horasMensualesActividad: hTot,
+      horasMensualesAutomatizadas: hAut,
+      horasManualesTotal: hMan,
+      horasManuales: hMan,
+      satisfaccionOperativa: a.satisfaccionOperativa,
+    };
+  });
 }

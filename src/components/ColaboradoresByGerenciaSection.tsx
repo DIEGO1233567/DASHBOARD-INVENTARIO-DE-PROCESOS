@@ -43,7 +43,7 @@ export function ColaboradoresByGerenciaSection({
     });
   }, [colaboradores, selectedGerencia, searchTerm]);
 
-  // Aggregated workload statistics for the current scope
+  // Aggregated workload statistics for the current scope (based on manual hours as team workload)
   const stats = useMemo(() => {
     const list =
       selectedGerencia === 'ALL'
@@ -51,12 +51,12 @@ export function ColaboradoresByGerenciaSection({
         : colaboradores.filter((c) => c.gerencia === selectedGerencia);
 
     const total = list.length;
-    const totalHoras = list.reduce((acc, c) => acc + c.horasTotales, 0);
-    const avgHoras = total > 0 ? (totalHoras / total).toFixed(1) : '0';
+    const totalHorasManuales = list.reduce((acc, c) => acc + c.horasManuales, 0);
+    const avgHorasManuales = total > 0 ? (totalHorasManuales / total).toFixed(1) : '0';
     const totalTareasMan = list.reduce((acc, c) => acc + c.tareasManuales, 0);
     const totalTareasAuto = list.reduce((acc, c) => acc + c.tareasAutomatizadas, 0);
 
-    return { total, totalHoras, avgHoras, totalTareasMan, totalTareasAuto };
+    return { total, totalHorasManuales, avgHorasManuales, totalTareasMan, totalTareasAuto };
   }, [colaboradores, selectedGerencia]);
 
   const toggleExpand = (key: string) => {
@@ -78,7 +78,7 @@ export function ColaboradoresByGerenciaSection({
             </h2>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Carga horaria mensual, volumen de tareas manuales vs. automatizadas ejecutadas y porcentaje respecto a la jornada normal de 152 h/mes.
+            Carga horaria mensual manual, volumen de tareas manuales vs. automatizadas ejecutadas y porcentaje respecto a la jornada normal de 152 h/mes.
           </p>
         </div>
 
@@ -103,8 +103,8 @@ export function ColaboradoresByGerenciaSection({
         </div>
       </div>
 
-      {/* Clean Stat Strip without status thresholds */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Clean Stat Strip (2 cards - Tareas Manuales vs Auto removed as requested) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="bg-white border border-slate-200 rounded-lg p-3.5 flex items-center justify-between shadow-2xs">
           <div>
             <div className="text-[11px] font-semibold text-slate-500">Colaboradores Asignados</div>
@@ -115,40 +115,13 @@ export function ColaboradoresByGerenciaSection({
 
         <div className="bg-white border border-slate-200 rounded-lg p-3.5 flex items-center justify-between shadow-2xs">
           <div>
-            <div className="text-[11px] font-semibold text-slate-500">Carga Promedio</div>
-            <div className="text-xl font-bold font-mono text-slate-900 mt-0.5">{formatThousands(stats.avgHoras, 1)} h/mes</div>
+            <div className="text-[11px] font-semibold text-slate-500">Carga Promedio (Manual)</div>
+            <div className="text-xl font-bold font-mono text-slate-900 mt-0.5">{formatThousands(stats.avgHorasManuales, 1)} h/mes</div>
             <div className="text-[10px] text-slate-500 font-mono">
-              {formatThousands((Number(stats.avgHoras) / 152) * 100, 0)}% de jornada (152h)
+              {formatThousands((Number(stats.avgHorasManuales) / 152) * 100, 0)}% de jornada (152h)
             </div>
           </div>
           <Clock className="w-6 h-6 text-blue-800" />
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-lg p-3.5 flex items-center justify-between shadow-2xs">
-          <div>
-            <div className="text-[11px] font-semibold text-slate-500">Horas Totales del Equipo</div>
-            <div className="text-xl font-bold font-mono text-blue-950 mt-0.5">
-              {formatHours(stats.totalHoras)} h
-            </div>
-            <div className="text-[10px] text-slate-500 font-mono">
-              {formatThousands(stats.totalHoras / 152, 1)} FTE totales
-            </div>
-          </div>
-          <Layers className="w-6 h-6 text-blue-700" />
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-lg p-3.5 flex items-center justify-between shadow-2xs">
-          <div>
-            <div className="text-[11px] font-semibold text-slate-500">Tareas Manuales vs Auto</div>
-            <div className="text-xl font-bold font-mono text-slate-900 mt-0.5">
-              <span className="text-amber-800">{formatThousands(stats.totalTareasMan)} man</span> ·{' '}
-              <span className="text-blue-800">{formatThousands(stats.totalTareasAuto)} auto</span>
-            </div>
-            <div className="text-[10px] text-slate-500 font-mono">
-              {formatThousands(stats.totalTareasMan + stats.totalTareasAuto)} ejecuciones totales
-            </div>
-          </div>
-          <CheckCircle2 className="w-6 h-6 text-blue-700" />
         </div>
       </div>
 
@@ -189,8 +162,12 @@ export function ColaboradoresByGerenciaSection({
                 <th className="py-3 px-3 text-center font-medium tracking-wide text-sky-200">
                   Tareas Auto.
                 </th>
-                <th className="py-3 px-3 text-right font-medium tracking-wide">Horas Manuales</th>
-                <th className="py-3 px-3 text-right font-medium tracking-wide">Horas Auto.</th>
+                <th className="py-3 px-3 text-right font-medium tracking-wide text-amber-300">
+                  Horas Manuales
+                </th>
+                <th className="py-3 px-3 text-right font-medium tracking-wide text-sky-200">
+                  Horas Auto.
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -243,19 +220,19 @@ export function ColaboradoresByGerenciaSection({
                           <div className="text-[11px] text-slate-500">{colab.puesto}</div>
                         </td>
 
-                        {/* Carga Actual (Horas) */}
+                        {/* Carga Actual (Horas Manuales) */}
                         <td className="py-3 px-3 text-center font-mono tabular-nums">
                           <span className="font-bold text-slate-900 text-sm">
-                            {formatHours(colab.horasTotales)} h
+                            {formatHours(colab.horasManuales)} h
                           </span>
                         </td>
 
-                        {/* % de Jornada (152h normal) */}
+                        {/* % de Jornada (152h normal con base en horas manuales) */}
                         <td className="py-3 px-4">
                           <div className="space-y-1">
                             <div className="flex items-center justify-between text-[11px] font-mono tabular-nums">
                               <span className="font-bold text-slate-800">{formatThousands(colab.porcentajeJornada, 1)}%</span>
-                              <span className="text-slate-400">{formatHours(colab.horasTotales)}/152 h</span>
+                              <span className="text-slate-400">{formatHours(colab.horasManuales)}/152 h</span>
                             </div>
                             <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
                               <div
@@ -285,12 +262,12 @@ export function ColaboradoresByGerenciaSection({
                         </td>
 
                         {/* Horas Manuales */}
-                        <td className="py-3 px-3 text-right font-mono tabular-nums text-slate-700">
+                        <td className="py-3 px-3 text-right font-mono tabular-nums font-bold text-amber-700">
                           {formatHours(colab.horasManuales)} h
                         </td>
 
                         {/* Horas Automatizadas */}
-                        <td className="py-3 px-3 text-right font-mono tabular-nums font-semibold text-blue-800">
+                        <td className="py-3 px-3 text-right font-mono tabular-nums font-bold text-blue-800">
                           {formatHours(colab.horasAutomatizadas)} h
                         </td>
                       </tr>
@@ -321,9 +298,9 @@ export function ColaboradoresByGerenciaSection({
                                       <th className="py-2 px-3 text-left">Actividad / Proceso</th>
                                       <th className="py-2 px-3 text-center">Frecuencia</th>
                                       <th className="py-2 px-3 text-center">¿Auto.?</th>
-                                      <th className="py-2 px-3 text-right">Horas Totales</th>
-                                      <th className="py-2 px-3 text-right">Horas Manuales</th>
-                                      <th className="py-2 px-3 text-right">Horas Auto.</th>
+                                      <th className="py-2 px-3 text-right font-semibold text-slate-800">Horas Totales</th>
+                                      <th className="py-2 px-3 text-right font-semibold text-amber-800">Horas Manuales</th>
+                                      <th className="py-2 px-3 text-right font-semibold text-blue-800">Horas Auto.</th>
                                       <th className="py-2 px-3 text-left">Herramienta</th>
                                       <th className="py-2 px-3 text-right bg-amber-50/60 text-amber-900 border-l border-amber-100 font-semibold" title="Porcentaje de la actividad respecto a la carga del colaborador (horas manuales)">
                                         % Carga Colab. (Manual)
@@ -362,7 +339,7 @@ export function ColaboradoresByGerenciaSection({
                                           <td className="py-2 px-3 text-right font-mono font-medium">
                                             {formatHours(act.horasMensualesTotal || act.horasMensualesActividad || 0)} h
                                           </td>
-                                          <td className="py-2 px-3 text-right font-mono text-slate-600">
+                                          <td className="py-2 px-3 text-right font-mono font-semibold text-amber-700">
                                             {formatHours(actManual)} h
                                           </td>
                                           <td className="py-2 px-3 text-right font-mono font-semibold text-blue-800">
