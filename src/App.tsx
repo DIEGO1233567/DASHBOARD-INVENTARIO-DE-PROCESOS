@@ -1,663 +1,628 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  AlertCircle,
-  Briefcase,
-  CheckCircle2,
-  Clock,
-  Cpu,
-  Database,
-  ExternalLink,
+  FileSpreadsheet,
+  RotateCcw,
+  Download,
+  SlidersHorizontal,
+  ArrowUpRight,
   Layers,
-  RefreshCw,
-  Sliders,
-  Sparkles,
-  Table,
-  Users,
+  ListChecks,
+  Clock,
   Zap,
 } from 'lucide-react';
-import { ActivitiesTable } from './components/ActivitiesTable';
-import { CredentialsModal } from './components/CredentialsModal';
-import { ExecutiveKpiSummary } from './components/ExecutiveKpiSummary';
-import { GerenciasOverview } from './components/GerenciasOverview';
-import { Header } from './components/Header';
-import { ImpactSimulator } from './components/ImpactSimulator';
-import { MacroProcessesView } from './components/MacroProcessesView';
-import { PasteDataModal } from './components/PasteDataModal';
-import { WorkloadAnalysis } from './components/WorkloadAnalysis';
-import { INITIAL_ACTIVITIES } from './data/initialData';
+import { INITIAL_RECORDS } from './data/initialData';
+import { ProcessRecord, SheetSyncConfig } from './types/sheets';
 import {
-  DEFAULT_SPREADSHEET_ID,
-  fetchSpreadsheetData,
-  GoogleApiDisabledError,
-  GOOGLE_PROJECT_ID,
-  parseCsvText,
-  parseExcelBuffer,
-  parseRowsToActivities,
-  requestGoogleAccessToken,
-  SHEETS_API_ENABLE_URL,
-  shouldIgnoreSheet,
-} from './services/googleDriveService';
-import { ActivityItem, GoogleDriveAuthState } from './types/dashboard';
-import {
-  calculateGerenciaSummary,
-  calculateOverallMetrics,
-} from './utils/kpiCalculator';
+  computeGerenciaSummaries,
+  computeColaboradorSummaries,
+  exportRecordsToMultiSheetXlsx,
+  normalizeNumber,
+  formatThousands,
+  formatHours,
+} from './utils/sheetsParser';
+import { exportExecutiveSummaryXlsx } from './utils/executiveExport';
+import { ConnectSheetsModal } from './components/ConnectSheetsModal';
+import { GerenciasChartSection } from './components/GerenciasChartSection';
+import { GerenciaPivotSection } from './components/GerenciaPivotSection';
+import { ColaboradoresByGerenciaSection } from './components/ColaboradoresByGerenciaSection';
+import { DynamicCatalogSection } from './components/DynamicCatalogSection';
+
+const DEFAULT_GERENCIA_SHEETS = [
+  'Nómina',
+  'CXP',
+  'CE/GDP',
+  'Sbb, Importadoras y Extranjeras LPC',
+  'Consolidación Operaciones',
+  'Consolidación Información Financiera',
+  'Eficiencia de Procesos',
+  'Conciliaciones Bancarias',
+  'Activo Fijo',
+  'Servicios',
+  'Depósito Bancario',
+  'Validaciones',
+  'AVE',
+  'Facturación',
+];
 
 export default function App() {
-  const [activities, setActivities] = useState<ActivityItem[]>(() => {
+  const [records, setRecords] = useState<ProcessRecord[]>(() => {
     try {
-      const saved = localStorage.getItem('liverpool_dashboard_activities_v3');
+      // Clear legacy storage keys if present
+      localStorage.removeItem('liverpool_dashboard_activities_v3');
+      localStorage.removeItem('liverpool_dashboard_records_v4');
+      const saved = localStorage.getItem('liverpool_dashboard_records_v5');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length >= 50) {
-          const totalHrs = parsed.reduce((sum: number, it: any) => sum + (it.horasMensualesActividad || 0), 0);
-          const hasKpiSheet = parsed.some((it: any) => shouldIgnoreSheet(it.gerencia || ''));
-          if (totalHrs > 100 && !hasKpiSheet) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const hasLegacySplit = parsed.some(
+            (r: any) =>
+              r.gerencia === 'Sbb' ||
+              r.gerencia === 'Importadoras y Extranjeras LPC' ||
+              r.gerencia === 'ARCHIVO GRAL'
+          );
+          if (!hasLegacySplit) {
             return parsed;
           }
         }
       }
     } catch (e) {
-      console.warn('Error reading cached activities', e);
+      console.warn('Error reading saved records', e);
     }
-    return INITIAL_ACTIVITIES;
+    return INITIAL_RECORDS;
   });
 
-  const [selectedGerencia, setSelectedGerencia] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'macros' | 'table' | 'workload' | 'simulator'>('overview');
-  const [isCredentialsModalOpen, setIsCredentialsModalOpen] = useState(false);
-  const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
-  const [apiDisabledNotice, setApiDisabledNotice] = useState<{
-    apiName: string;
-    enableUrl: string;
-    projectId: string;
-  } | null>(null);
+  const [selectedGerencia, setSelectedGerencia] = useState<string>('ALL');
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState<boolean>(false);
+  const [isExportingExecutive, setIsExportingExecutive] = useState<boolean>(false);
+  const [syncConfig, setSyncConfig] = useState<SheetSyncConfig>({
+    spreadsheetUrl: '',
+    spreadsheetId: '',
+    sheetNames: DEFAULT_GERENCIA_SHEETS,
+    lastSyncedAt: null,
+    sourceType: 'demo',
+  });
 
-  const [authState, setAuthState] = useState<GoogleDriveAuthState>(() => {
+  // All Gerencia summaries (always computed across all loaded sheets for global context)
+  const allGerenciaSummaries = useMemo(
+    () => computeGerenciaSummaries(records),
+    [records]
+  );
+
+  // Scoped records when filtering by a specific Gerencia
+  const scopedRecords = useMemo(() => {
+    if (selectedGerencia === 'ALL') return records;
+    return records.filter((r) => r.gerencia === selectedGerencia);
+  }, [records, selectedGerencia]);
+
+  // Collaborator summaries
+  const colaboradorSummaries = useMemo(
+    () => computeColaboradorSummaries(records),
+    [records]
+  );
+
+  const allGerenciaNames = useMemo(
+    () => allGerenciaSummaries.map((g) => g.gerencia),
+    [allGerenciaSummaries]
+  );
+
+  // Global / Scoped KPI calculations
+  const kpiMetrics = useMemo(() => {
+    const macroByGerenciaCount = new Set(
+      scopedRecords.map((r) => `${r.gerencia}:::${r.procesoMacro}`)
+    ).size;
+    const actividadesCount = new Set(
+      scopedRecords.map((r) => `${r.gerencia}:::${(r.actividadProceso || '').trim().toLowerCase()}`)
+    ).size;
+    const totalFilasCount = scopedRecords.length;
+    const colaboradoresCount = new Set(
+      scopedRecords.map((r) => `${r.gerencia}:::${(r.responsableFuncional || '').trim().toLowerCase()}`)
+    ).size;
+    const gerenciasCount = new Set(scopedRecords.map((r) => r.gerencia)).size;
+
+    let horasTotales = 0;
+    let horasManuales = 0;
+    let horasAutomatizadas = 0;
+    let horasPotencialAutomatizable = 0;
+    let tareasManualesEjecutadas = 0;
+    let tareasConAutomatizacion = 0;
+
+    scopedRecords.forEach((r) => {
+      const hTot = normalizeNumber(r.horasMensualesTotal != null ? r.horasMensualesTotal : r.horasMensualesActividad);
+      const hMan = normalizeNumber(r.horasManualesTotal != null ? r.horasManualesTotal : r.horasManuales);
+      const hAut = normalizeNumber(r.horasMensualesAutomatizadas);
+
+      horasTotales += hTot;
+      horasManuales += hMan;
+      horasAutomatizadas += hAut;
+
+      const esAuto = r.esAutomatizable === 'Sí' || r.esAutomatizable === 'SÍ';
+      if (esAuto) {
+        horasPotencialAutomatizable += hMan;
+      }
+      if (hMan > 0) {
+        tareasManualesEjecutadas += 1;
+      }
+      if (hAut > 0 || (r.porcentajeAutomatizado || 0) > 0) {
+        tareasConAutomatizacion += 1;
+      }
+    });
+
+    const pctAutomatizadoGlobal =
+      horasTotales > 0 ? (horasAutomatizadas / horasTotales) * 100 : 0;
+    const pctPotencialMeta =
+      horasTotales > 0
+        ? ((horasAutomatizadas + horasPotencialAutomatizable) / horasTotales) * 100
+        : 0;
+    const fteLiberables = horasPotencialAutomatizable / 152;
+
     return {
-      isConnected: false,
-      userEmail: 'dmartinezp@liverpool.com.mx',
-      userName: 'Diego Martínez',
-      userAvatar: null,
-      accessToken: null,
-      lastSyncTime: null,
-      isSyncing: false,
-      syncError: null,
-      spreadsheetId: DEFAULT_SPREADSHEET_ID,
-      sheetCount: 5,
+      gerenciasCount,
+      macroByGerenciaCount,
+      actividadesCount,
+      totalFilasCount,
+      colaboradoresCount,
+      horasTotales: Number(horasTotales.toFixed(1)),
+      horasManuales: Number(horasManuales.toFixed(1)),
+      horasAutomatizadas: Number(horasAutomatizadas.toFixed(1)),
+      horasPotencialAutomatizable: Number(horasPotencialAutomatizable.toFixed(1)),
+      tareasManualesEjecutadas,
+      tareasConAutomatizacion,
+      pctAutomatizadoGlobal: Number(pctAutomatizadoGlobal.toFixed(1)),
+      pctPotencialMeta: Number(pctPotencialMeta.toFixed(1)),
+      fteLiberables: Number(fteLiberables.toFixed(2)),
     };
-  });
+  }, [scopedRecords]);
 
-  // Calculate summaries for each Gerencia
-  const gerenciasSummaries = useMemo(() => {
-    const gerenciaMap = new Map<string, ActivityItem[]>();
-    for (const a of activities) {
-      // Filter out any activity belonging to an ignored KPI sheet
-      if (shouldIgnoreSheet(a.gerencia)) continue;
-
-      const g = a.gerencia || 'Gerencia General';
-      if (!gerenciaMap.has(g)) {
-        gerenciaMap.set(g, []);
-      }
-      gerenciaMap.get(g)!.push(a);
-    }
-
-    return Array.from(gerenciaMap.entries()).map(([gName, gItems]) =>
-      calculateGerenciaSummary(gName, gItems)
-    );
-  }, [activities]);
-
-  // Overall metrics (or filtered to selected gerencia)
-  const currentMetrics = useMemo(() => {
-    if (selectedGerencia) {
-      const gSummary = gerenciasSummaries.find((g) => g.gerencia === selectedGerencia);
-      if (gSummary) {
-        return calculateOverallMetrics([gSummary]);
-      }
-    }
-    return calculateOverallMetrics(gerenciasSummaries);
-  }, [gerenciasSummaries, selectedGerencia]);
-
-  // Toast notification helper
-  const showToast = (type: 'success' | 'error' | 'info', text: string) => {
-    setToastMessage({ type, text });
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 7000);
-  };
-
-  // Live Sync trigger with access token
-  const performSync = async (token: string, sheetId: string) => {
-    setAuthState((prev) => ({ ...prev, isSyncing: true, syncError: null }));
-    showToast('info', 'Consultando hojas de cálculo en Google Drive y Sheets API...');
-
-    try {
-      const result = await fetchSpreadsheetData(token, sheetId);
-      if (result.activities.length > 0) {
-        setActivities(result.activities);
-        localStorage.setItem('liverpool_dashboard_activities_v3', JSON.stringify(result.activities));
-        setAuthState((prev) => ({
-          ...prev,
-          isConnected: true,
-          accessToken: token,
-          isSyncing: false,
-          lastSyncTime: new Date().toLocaleTimeString(),
-          sheetCount: result.sheetNames.length,
-          syncError: null,
-        }));
-        setApiDisabledNotice(null);
-        showToast(
-          'success',
-          `¡Sincronizado con éxito (${result.source === 'drive_xlsx' ? 'Google Drive Multi-Hoja XLSX' : 'Google Sheets API'})! Se cargaron ${result.totalRows} actividades en ${result.sheetNames.length} gerencias.`
-        );
-      } else {
-        throw new Error('El archivo no devolvió actividades con la estructura esperada.');
-      }
-    } catch (err: any) {
-      console.error('Sync failed:', err);
-      const isApiDisabled =
-        err instanceof GoogleApiDisabledError ||
-        String(err?.message || '').includes('SERVICE_DISABLED') ||
-        String(err?.message || '').includes('has not been used in project') ||
-        String(err?.message || '').includes('sheets.googleapis.com');
-
-      if (isApiDisabled) {
-        setApiDisabledNotice({
-          apiName: 'Google Sheets API',
-          enableUrl: SHEETS_API_ENABLE_URL,
-          projectId: GOOGLE_PROJECT_ID,
-        });
-        const friendlyMsg = `La Google Sheets API no está habilitada en tu proyecto de Google Cloud (${GOOGLE_PROJECT_ID}). Haz clic en el botón de abajo para activarla.`;
-        setAuthState((prev) => ({ ...prev, isSyncing: false, syncError: friendlyMsg }));
-        showToast('error', friendlyMsg);
-      } else {
-        const errMsg = err?.message || 'Error al conectar con Google Sheets API.';
-        setAuthState((prev) => ({ ...prev, isSyncing: false, syncError: errMsg }));
-        showToast('error', `Fallo de sincronización: ${errMsg}`);
-      }
-    }
-  };
-
-  // Excel (.xlsx/.xls) or CSV File Upload handler
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
-
-    if (isExcel) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const buffer = event.target?.result as ArrayBuffer;
-          const { activities: importedActivities, sheetNames } = parseExcelBuffer(buffer);
-          if (importedActivities.length > 0) {
-            setActivities(importedActivities);
-            localStorage.setItem('liverpool_dashboard_activities_v3', JSON.stringify(importedActivities));
-            showToast(
-              'success',
-              `¡Archivo Excel cargado con éxito! Se importaron ${importedActivities.length} actividades en ${sheetNames.length} gerencias (${sheetNames.join(', ')}).`
-            );
-          } else {
-            showToast('error', 'El archivo Excel no contiene filas con la estructura de columnas requerida.');
-          }
-        } catch (err: any) {
-          showToast('error', `Error al leer libro Excel: ${err?.message}`);
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const text = event.target?.result as string;
-          const rows = parseCsvText(text);
-          const importedActivities = parseRowsToActivities(rows, file.name.replace(/\.[^/.]+$/, ''));
-          if (importedActivities.length > 0) {
-            setActivities(importedActivities);
-            localStorage.setItem('liverpool_dashboard_activities_v3', JSON.stringify(importedActivities));
-            showToast(
-              'success',
-              `¡Archivo CSV importado con éxito! Se cargaron ${importedActivities.length} actividades desde "${file.name}".`
-            );
-          } else {
-            showToast('error', 'El archivo no contiene filas válidas según la estructura esperada.');
-          }
-        } catch (err: any) {
-          showToast('error', `Error al leer archivo CSV: ${err?.message}`);
-        }
-      };
-      reader.readAsText(file);
-    }
-    e.target.value = '';
-  };
-
-  // Google OAuth button handler
-  const handleConnectGoogle = () => {
-    showToast('info', 'Abriendo ventana de autenticación de Google...');
-    requestGoogleAccessToken(
-      (token) => {
-        setAuthState((prev) => ({
-          ...prev,
-          isConnected: true,
-          accessToken: token,
-        }));
-        performSync(token, authState.spreadsheetId);
-      },
-      (error) => {
-        setAuthState((prev) => ({ ...prev, syncError: error }));
-        showToast('error', error);
-        setIsCredentialsModalOpen(true);
-      }
-    );
-  };
-
-  // Manual Token submission fallback
-  const handleManualToken = (token: string) => {
-    setAuthState((prev) => ({ ...prev, isConnected: true, accessToken: token }));
-    performSync(token, authState.spreadsheetId);
-  };
-
-  const handleUpdateSpreadsheetId = (newId: string) => {
-    setAuthState((prev) => ({ ...prev, spreadsheetId: newId }));
-    if (authState.accessToken) {
-      performSync(authState.accessToken, newId);
-    } else {
-      showToast('info', `ID de Google Sheet actualizado a: ${newId}`);
-    }
-  };
-
-  const handleImportActivities = (
-    newActivities: ActivityItem[],
-    gerenciaName: string,
-    mode: 'merge' | 'replace'
+  const handleImportSuccess = (
+    importedRecords: ProcessRecord[],
+    config: SheetSyncConfig,
+    mode: 'replace' | 'merge'
   ) => {
-    setActivities((prev) => {
-      let updated: ActivityItem[];
-      if (mode === 'replace') {
-        updated = [...prev.filter((a) => a.gerencia !== gerenciaName), ...newActivities];
-      } else {
-        updated = [...prev, ...newActivities];
+    let finalRecords: ProcessRecord[];
+    if (mode === 'replace') {
+      finalRecords = importedRecords;
+      setSelectedGerencia('ALL');
+    } else {
+      finalRecords = [...records, ...importedRecords];
+    }
+    setRecords(finalRecords);
+    setSyncConfig(config);
+    try {
+      localStorage.setItem('liverpool_dashboard_records_v5', JSON.stringify(finalRecords));
+    } catch (e) {
+      console.warn('Error caching records', e);
+    }
+  };
+
+  const handleAddSingleRecord = (newRec: ProcessRecord) => {
+    setRecords((prev) => {
+      const updated = [newRec, ...prev];
+      try {
+        localStorage.setItem('liverpool_dashboard_records_v5', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Error caching records', e);
       }
-      localStorage.setItem('liverpool_dashboard_activities_v3', JSON.stringify(updated));
       return updated;
     });
-    setSelectedGerencia(gerenciaName);
-    showToast(
-      'success',
-      `¡Se cargaron ${newActivities.length} actividades en "${gerenciaName}" exitosamente!`
-    );
+  };
+
+  const handleResetDemo = () => {
+    localStorage.removeItem('liverpool_dashboard_records_v5');
+    localStorage.removeItem('liverpool_dashboard_records_v4');
+    localStorage.removeItem('liverpool_dashboard_activities_v3');
+    setRecords(INITIAL_RECORDS);
+    setSelectedGerencia('ALL');
+    setSyncConfig({
+      spreadsheetUrl: '',
+      spreadsheetId: '',
+      sheetNames: DEFAULT_GERENCIA_SHEETS,
+      lastSyncedAt: null,
+      sourceType: 'demo',
+    });
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans selection:bg-[#E1197E] selection:text-white">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-24 right-4 z-50 max-w-md animate-fade-in">
-          <div
-            className={`p-4 rounded-2xl shadow-xl border text-xs flex items-start gap-3 backdrop-blur-md ${
-              toastMessage.type === 'success'
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                : toastMessage.type === 'error'
-                ? 'bg-rose-50 border-rose-300 text-rose-900'
-                : 'bg-white border-indigo-200 text-indigo-950 shadow-md'
-            }`}
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+      {/* Strict 3-Zone Corporate Top Bar */}
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-8 px-6 py-3.5 bg-slate-900 text-white border-b border-slate-800 shadow-sm">
+        {/* Zone 1: Single text element wordmark */}
+        <a
+          href="#top"
+          className="text-base font-bold tracking-tight text-white whitespace-nowrap shrink-0"
+        >
+          Tablero Inventario de Procesos
+        </a>
+
+        {/* Zone 2: 4 concise single-line text navigation links */}
+        <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-slate-300">
+          <a
+            href="#resumen-gerencial"
+            className="hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
           >
-            {toastMessage.type === 'success' ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            ) : toastMessage.type === 'error' ? (
-              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-            ) : (
-              <RefreshCw className="w-5 h-5 text-indigo-600 animate-spin shrink-0" />
-            )}
-            <div className="flex-1 leading-relaxed font-semibold">{toastMessage.text}</div>
-            <button
-              onClick={() => setToastMessage(null)}
-              className="text-slate-400 hover:text-slate-800 text-xs font-bold"
-            >
-              ✕
-            </button>
-          </div>
+            Resumen Gerencial
+          </a>
+          <a
+            href="#carga-colaborador"
+            className="hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
+          >
+            Carga por Colaborador
+          </a>
+          <a
+            href="#matriz-dinamica"
+            className="hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
+          >
+            Matriz Dinámica
+          </a>
+          <a
+            href="#catalogo-actividades"
+            className="hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
+          >
+            Catálogo de Actividades
+          </a>
+        </nav>
+
+        {/* Zone 3: 1 primary action */}
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsConnectModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-md transition-colors whitespace-nowrap shrink-0 shadow-xs cursor-pointer"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            Conectar Google Sheets
+          </button>
         </div>
-      )}
+      </header>
 
-      {/* Main Top Header */}
-      <Header
-        authState={authState}
-        onConnectGoogle={handleConnectGoogle}
-        onSyncNow={() => authState.accessToken && performSync(authState.accessToken, authState.spreadsheetId)}
-        onOpenSettings={() => setIsCredentialsModalOpen(true)}
-        onOpenPasteModal={() => setIsPasteModalOpen(true)}
-        totalActivitiesCount={activities.length}
-        gerenciasCount={gerenciasSummaries.length}
-      />
-
-      {/* Main Content Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-7">
-        {/* API Disabled Action Banner */}
-        {apiDisabledNotice && (
-          <div className="p-5 rounded-3xl bg-amber-50 border border-amber-300 shadow-md space-y-3 animate-fade-in">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-xl bg-amber-100 text-amber-800 border border-amber-300">
-                  <AlertCircle className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
-                    Acción Requerida: Habilitar Google Sheets API en tu Proyecto ({apiDisabledNotice.projectId})
-                  </h3>
-                  <p className="text-xs text-slate-700 mt-1 leading-relaxed font-medium">
-                    Google Cloud requiere habilitar la <b>Google Sheets API</b> en el proyecto asociado a tu ID de cliente antes de poder consultar las hojas de cálculo. Haz clic en el botón verde para habilitarla con tu cuenta de Google.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setApiDisabledNotice(null)}
-                className="text-slate-400 hover:text-slate-800 p-1 font-bold"
-                title="Descartar aviso"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <a
-                href={apiDisabledNotice.enableUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition active:scale-95"
-              >
-                <span>1. Habilitar Google Sheets API en Google Cloud</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-
-              {authState.accessToken && (
-                <button
-                  onClick={() => performSync(authState.accessToken!, authState.spreadsheetId)}
-                  disabled={authState.isSyncing}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs border border-slate-300 shadow-xs transition"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${authState.isSyncing ? 'animate-spin' : ''}`} />
-                  <span>2. Ya la habilité, Reintentar</span>
-                </button>
-              )}
-
-              <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs border border-slate-300 shadow-xs transition cursor-pointer">
-                <span>📁 O Cargar Excel / CSV (.xlsx, .csv)</span>
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-
-              <button
-                onClick={() => setApiDisabledNotice(null)}
-                className="text-xs text-slate-600 hover:text-slate-900 font-semibold underline ml-auto"
-              >
-                Continuar con datos pre-cargados
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Gerencias Command Bar (TODO PARTE DE LAS GERENCIAS) */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#E1197E]" />
-              <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                Centro de Mando por Gerencias
-              </h2>
-              <span className="text-xs text-slate-500 font-medium">
-                (Selecciona una gerencia para navegar de lo general a lo particular)
+      {/* Main Executive Workspace */}
+      <main id="top" className="flex-1 max-w-[1440px] w-full mx-auto px-6 py-6 space-y-6">
+        {/* Context & Connection Bar */}
+        <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-xs">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span>Consolidación Multi-Gerencia</span>
+              <span aria-hidden="true">·</span>
+              <span>
+                Fuente activa:{' '}
+                <strong className="text-slate-800">
+                  {syncConfig.sourceType === 'demo'
+                    ? `Libro Corporativo (${allGerenciaSummaries.length} Hojas de Gerencia)`
+                    : syncConfig.sourceType === 'google-sheets-url'
+                    ? `Google Sheets Sincronizado (${syncConfig.sheetNames.length} Hojas)`
+                    : syncConfig.sourceType === 'xlsx-upload'
+                    ? `Archivo ${syncConfig.fileName} (${syncConfig.sheetNames.length} Hojas)`
+                    : 'Datos integrados desde Portapapeles'}
+                </strong>
               </span>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs text-slate-700 font-bold transition cursor-pointer shadow-2xs">
-                <span>📂 Subir Archivo (.xlsx / .csv)</span>
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-              <button
-                onClick={() => {
-                  localStorage.removeItem('liverpool_dashboard_activities_v3');
-                  localStorage.removeItem('liverpool_dashboard_activities');
-                  setActivities(INITIAL_ACTIVITIES);
-                  setSelectedGerencia('');
-                  showToast('info', 'Se restauró el catálogo oficial de Liverpool con las 11 Gerencias y 350 actividades.');
-                }}
-                className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs text-slate-600 font-bold transition shadow-2xs"
-                title="Recargar catálogo base de Liverpool con las 11 Gerencias"
-              >
-                ↺ Restaurar Base (11 Gerencias)
-              </button>
-              {selectedGerencia && (
-                <button
-                  onClick={() => setSelectedGerencia('')}
-                  className="px-3 py-1.5 rounded-xl bg-pink-50 hover:bg-pink-100 text-xs font-bold text-[#E1197E] border border-pink-200 transition"
-                >
-                  ✕ Ver Todas
-                </button>
+              {syncConfig.lastSyncedAt && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>Actualizado {syncConfig.lastSyncedAt}</span>
+                </>
               )}
             </div>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight text-balance">
+              Tablero Inventario de Procesos
+            </h1>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-1">
+          {/* Workspace Toolbar Controls */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-md border border-slate-200 text-xs">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-blue-900" />
+              <label htmlFor="vistaGerenciaSelect" className="font-semibold text-slate-700 whitespace-nowrap">Vista:</label>
+              <select
+                id="vistaGerenciaSelect"
+                value={selectedGerencia}
+                onChange={(e) => setSelectedGerencia(e.target.value)}
+                className="bg-transparent font-semibold text-blue-950 focus:outline-none cursor-pointer"
+              >
+                <option value="ALL">
+                  Todas las Gerencias ({allGerenciaSummaries.length} Hojas)
+                </option>
+                {allGerenciaNames.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <button
-              onClick={() => setSelectedGerencia('')}
-              className={`p-3.5 rounded-2xl border text-left transition ${
-                !selectedGerencia
-                  ? 'bg-[#E1197E] text-white border-[#E1197E] shadow-md ring-2 ring-[#E1197E]/20'
-                  : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200'
-              }`}
+              type="button"
+              onClick={() => setIsConnectModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-blue-900 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              <div className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">
-                Consolidado
-              </div>
-              <div className="text-xs font-black truncate">Todas las Gerencias</div>
-              <div className="text-[11px] font-bold mt-1.5 opacity-90">
-                {activities.length} actividades
-              </div>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+              Pegar Liga o Subir .XLSX
             </button>
 
-            {gerenciasSummaries.map((g) => {
-              const isSel = selectedGerencia === g.gerencia;
-              const isAuto = g.kpiAutomatizacion >= 80;
-              return (
-                <button
-                  key={g.gerencia}
-                  onClick={() => setSelectedGerencia(g.gerencia)}
-                  className={`p-3.5 rounded-2xl border text-left transition ${
-                    isSel
-                      ? 'bg-[#E1197E] text-white border-[#E1197E] shadow-md ring-2 ring-[#E1197E]/20'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span
-                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                        isSel
-                          ? 'bg-white/20 text-white'
-                          : isAuto
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}
-                    >
-                      {g.kpiAutomatizacion}% Viable
-                    </span>
-                  </div>
-                  <div className="text-xs font-black truncate" title={g.gerencia}>
-                    {g.gerencia.replace('Gerencia de ', '')}
-                  </div>
-                  <div className="text-[11px] font-semibold mt-1 opacity-80">
-                    {g.totalHorasActividad}h • {g.totalTareas} tareas
-                  </div>
-                </button>
-              );
-            })}
+            {/* Botón Descargar Resumen Ejecutivo (.xlsx) con KPIs de inicio, gráfica y Sección 1 */}
+            <button
+              type="button"
+              disabled={isExportingExecutive}
+              onClick={async () => {
+                try {
+                  setIsExportingExecutive(true);
+                  await exportExecutiveSummaryXlsx(
+                    kpiMetrics,
+                    allGerenciaSummaries,
+                    selectedGerencia,
+                    `Resumen_Ejecutivo_KPIs_y_Gerencias_${selectedGerencia === 'ALL' ? 'Global' : selectedGerencia.replace(/\s+/g, '_')}.xlsx`
+                  );
+                } catch (err) {
+                  console.error('Error al exportar resumen ejecutivo:', err);
+                } finally {
+                  setIsExportingExecutive(false);
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-950 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 rounded-md transition-colors whitespace-nowrap shrink-0 shadow-2xs cursor-pointer disabled:opacity-60"
+              title="Descargar libro Excel (.xlsx) con los cuadros de KPIs de inicio, la gráfica comparativa y la tabla de Sección 1"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+              {isExportingExecutive ? 'Generando .xlsx...' : 'Descargar Resumen .xlsx'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                exportRecordsToMultiSheetXlsx(
+                  records,
+                  'Reporte_Ejecutivo_Gerencias.xlsx'
+                )
+              }
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              title="Descargar libro Excel con pestañas por gerencia"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Descargar .XLSX
+            </button>
+
+            {syncConfig.sourceType !== 'demo' && (
+              <button
+                type="button"
+                onClick={handleResetDemo}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Restaurar Base Ejemplo
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Executive KPI Summary */}
-        <ExecutiveKpiSummary
-          metrics={currentMetrics}
-          selectedGerenciaName={selectedGerencia}
+        {/* Executive KPI Grid (4 High-Impact Metric Cards) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* KPI 1: Conteo de Procesos Macro */}
+          <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-xs hover:shadow-sm transition-shadow relative overflow-hidden border-t-4 border-t-blue-600 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Procesos Macro Evaluados
+                </span>
+                <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+                  <Layers className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="mt-3 flex items-baseline justify-between gap-2">
+                <span className="text-3xl sm:text-4xl font-black font-mono tabular-nums text-slate-900 tracking-tight">
+                  {formatThousands(kpiMetrics.macroByGerenciaCount)}
+                </span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200/60 font-mono tabular-nums">
+                  en {formatThousands(kpiMetrics.gerenciasCount)} gerencia(s)
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-500">
+              Promedio de{' '}
+              <strong className="font-mono text-slate-800 font-bold">
+                {formatThousands(
+                  kpiMetrics.macroByGerenciaCount / Math.max(1, kpiMetrics.gerenciasCount),
+                  1
+                )}
+              </strong>{' '}
+              procesos macro por gerencia
+            </div>
+          </div>
+
+          {/* KPI 2: Conteo de ACTIVIDAD / PROCESO */}
+          <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-xs hover:shadow-sm transition-shadow relative overflow-hidden border-t-4 border-t-indigo-600 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Actividades / Procesos (Únicas)
+                </span>
+                <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+                  <ListChecks className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="mt-3 flex items-baseline justify-between gap-2">
+                <span className="text-3xl sm:text-4xl font-black font-mono tabular-nums text-slate-900 tracking-tight">
+                  {formatThousands(kpiMetrics.actividadesCount)}
+                </span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/60 font-mono tabular-nums">
+                  {formatThousands(kpiMetrics.totalFilasCount)} registros
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-500">
+              <strong className="font-mono text-slate-800 font-bold">
+                {formatThousands(kpiMetrics.actividadesCount)}
+              </strong>{' '}
+              actividades únicas ·{' '}
+              <strong className="font-mono text-slate-800 font-bold">
+                {formatThousands(kpiMetrics.colaboradoresCount)}
+              </strong>{' '}
+              colaboradores
+            </div>
+          </div>
+
+          {/* KPI 3: Horas Mensuales Manuales */}
+          <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-xs hover:shadow-sm transition-shadow relative overflow-hidden border-t-4 border-t-amber-500 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Horas Mensuales Manuales
+                </span>
+                <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
+                  <Clock className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="mt-3 flex items-baseline justify-between gap-2">
+                <div className="flex items-baseline">
+                  <span className="text-3xl sm:text-4xl font-black font-mono tabular-nums text-slate-900 tracking-tight">
+                    {formatHours(kpiMetrics.horasManuales)}
+                  </span>
+                  <span className="ml-1 text-base font-bold text-slate-500">h</span>
+                </div>
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 font-mono tabular-nums">
+                  {formatThousands(kpiMetrics.horasManuales / 152, 1)} FTE manual
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-500">
+              Promedio{' '}
+              <strong className="font-mono text-slate-800 font-bold">
+                {formatThousands(
+                  kpiMetrics.horasManuales / Math.max(1, kpiMetrics.colaboradoresCount),
+                  1
+                )}{' '}
+                h/mes
+              </strong>{' '}
+              manuales por responsable funcional
+            </div>
+          </div>
+
+          {/* KPI 4: Volumen Horas Manuales vs Automatizadas y Total */}
+          <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-xs hover:shadow-sm transition-shadow relative overflow-hidden border-t-4 border-t-indigo-600 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Horas Manuales vs. Automatizadas
+                </span>
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 border border-slate-200 font-mono tabular-nums" title="Horas Mensuales Actividad (Total)">
+                  Total: {formatHours(kpiMetrics.horasTotales)} h
+                </span>
+              </div>
+
+              {/* Dual Metric Highlights */}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="bg-amber-50/70 border border-amber-200/70 rounded-lg p-2 text-left">
+                  <div className="flex items-center gap-1 text-[10px] font-bold text-amber-800 uppercase tracking-wide">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Manuales
+                  </div>
+                  <div className="mt-0.5 text-xl sm:text-2xl font-black font-mono tabular-nums text-amber-950 tracking-tight">
+                    {formatHours(kpiMetrics.horasManuales)}
+                    <span className="text-xs font-semibold text-amber-700 ml-0.5">h</span>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50/70 border border-blue-200/70 rounded-lg p-2 text-left">
+                  <div className="flex items-center gap-1 text-[10px] font-bold text-blue-800 uppercase tracking-wide">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                    Auto
+                  </div>
+                  <div className="mt-0.5 text-xl sm:text-2xl font-black font-mono tabular-nums text-blue-950 tracking-tight">
+                    {formatHours(kpiMetrics.horasAutomatizadas)}
+                    <span className="text-xs font-semibold text-blue-700 ml-0.5">h</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-1.5">
+              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex border border-slate-200">
+                <div
+                  style={{ width: `${kpiMetrics.pctAutomatizadoGlobal}%` }}
+                  className="bg-blue-600 h-full"
+                />
+                <div
+                  style={{ width: `${100 - kpiMetrics.pctAutomatizadoGlobal}%` }}
+                  className="bg-amber-400 h-full"
+                />
+              </div>
+              <div className="text-[11px] font-bold flex justify-between items-center font-mono tabular-nums text-slate-600">
+                <span className="text-blue-700 font-extrabold">{formatThousands(kpiMetrics.pctAutomatizadoGlobal, 1)}% auto</span>
+                <span className="text-slate-500 font-semibold text-[10px] hidden sm:inline">
+                  Total Actividad: <strong className="font-mono text-slate-800">{formatHours(kpiMetrics.horasTotales)} h</strong> ({formatThousands(kpiMetrics.horasTotales / 152, 1)} FTE)
+                </span>
+                <span className="text-amber-800 font-extrabold">{formatThousands(100 - kpiMetrics.pctAutomatizadoGlobal, 1)}% manual</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Gráfica Comparativa por Gerencia: Horas Manuales vs. Automatizadas y Volumen de Actividades */}
+        <GerenciasChartSection
+          summaries={allGerenciaSummaries}
+          selectedGerencia={selectedGerencia}
+          onSelectGerencia={setSelectedGerencia}
         />
 
-        {/* Global Navigation Tabs (From General to Particular) */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-1">
-          <nav className="flex items-center gap-1 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
-                activeTab === 'overview'
-                  ? 'bg-[#E1197E] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <Layers className="w-4 h-4" />
-              <span>1. Gerencias (Visión General)</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${activeTab === 'overview' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                {gerenciasSummaries.length}
-              </span>
-            </button>
+        {/* Section 01: Consolidated Gerencia Pivot Table & Visual Indicators */}
+        <GerenciaPivotSection
+          summaries={allGerenciaSummaries}
+          records={records}
+          selectedGerencia={selectedGerencia}
+          onSelectGerencia={setSelectedGerencia}
+        />
 
-            <button
-              onClick={() => setActiveTab('macros')}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
-                activeTab === 'macros'
-                  ? 'bg-[#E1197E] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <Cpu className="w-4 h-4" />
-              <span>2. Procesos Macro</span>
-            </button>
+        {/* Section 02: Collaborator Workload & Task Volume by Gerencia */}
+        <ColaboradoresByGerenciaSection
+          colaboradores={colaboradorSummaries}
+          records={records}
+          selectedGerencia={selectedGerencia}
+          onSelectGerencia={setSelectedGerencia}
+          allGerencias={allGerenciaNames}
+        />
 
-            <button
-              onClick={() => setActiveTab('table')}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
-                activeTab === 'table'
-                  ? 'bg-[#E1197E] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <Table className="w-4 h-4" />
-              <span>3. Matriz de Actividades</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${activeTab === 'table' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                {activities.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('workload')}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
-                activeTab === 'workload'
-                  ? 'bg-[#E1197E] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>4. Carga Operativa de Equipos</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('simulator')}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs sm:text-sm font-bold transition whitespace-nowrap ${
-                activeTab === 'simulator'
-                  ? 'bg-[#E1197E] text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>5. Simulador de Impacto (80%)</span>
-            </button>
-          </nav>
-        </div>
-
-        {/* Tab 1: Overview of Gerencias */}
-        {activeTab === 'overview' && (
-          <GerenciasOverview
-            gerencias={gerenciasSummaries}
-            onSelectGerencia={(gName) => {
-              setSelectedGerencia(gName);
-              setActiveTab('macros');
-            }}
-            selectedGerenciaName={selectedGerencia}
-          />
-        )}
-
-        {/* Tab 2: Macro Processes Drill-Down */}
-        {activeTab === 'macros' && (
-          <MacroProcessesView
-            gerencias={gerenciasSummaries}
-            selectedGerenciaName={selectedGerencia}
-            onSelectGerencia={(gName) => setSelectedGerencia(gName)}
-          />
-        )}
-
-        {/* Tab 3: Detailed Activities Table */}
-        {activeTab === 'table' && (
-          <ActivitiesTable
-            activities={activities}
-            selectedGerenciaName={selectedGerencia}
-          />
-        )}
-
-        {/* Tab 4: Workload Analysis */}
-        {activeTab === 'workload' && (
-          <WorkloadAnalysis
-            activities={activities}
-            selectedGerenciaName={selectedGerencia}
-          />
-        )}
-
-        {/* Tab 5: Impact Simulator */}
-        {activeTab === 'simulator' && (
-          <ImpactSimulator
-            gerencias={gerenciasSummaries}
-            selectedGerenciaName={selectedGerencia || gerenciasSummaries[0]?.gerencia || ''}
-            onSelectGerencia={(gName) => setSelectedGerencia(gName)}
-          />
-        )}
+        {/* Section 03 & 04: Multi-Dimension Pivot Explorer & 14-Column Master Sheet */}
+        <DynamicCatalogSection
+          records={records}
+          selectedGerencia={selectedGerencia}
+          onAddRecord={handleAddSingleRecord}
+        />
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-6 text-xs text-slate-500 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-900">EL PUERTO DE LIVERPOOL</span>
-            <span>•</span>
-            <span className="font-semibold text-slate-600">Transformación Digital & Automatización de Procesos</span>
-          </div>
-          <div className="text-[11px] text-slate-500 text-center sm:text-right font-medium">
-            Metodología APQC & Gartner MVA (Meta 80% Viable) • Conexión en tiempo real con Google Drive API
+      {/* Quiet Corporate Footer */}
+      <footer className="mt-12 border-t border-slate-200 bg-white px-6 py-4">
+        <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+          <span>
+            Tablero Inventario de Procesos · Estructura Multi-Hoja por Gerencia
+          </span>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setIsConnectModalOpen(true)}
+              className="text-blue-800 hover:underline font-medium cursor-pointer"
+            >
+              Conectar Liga de Google Sheets
+            </button>
+            <span>·</span>
+            <button
+              type="button"
+              onClick={() =>
+                exportRecordsToMultiSheetXlsx(
+                  records,
+                  'Consolidado_Eficiencia_Operativa.xlsx'
+                )
+              }
+              className="text-blue-800 hover:underline font-medium cursor-pointer"
+            >
+              Exportar Libro .XLSX
+            </button>
           </div>
         </div>
       </footer>
 
-      {/* Credentials & Redirect URIs Modal */}
-      <CredentialsModal
-        isOpen={isCredentialsModalOpen}
-        onClose={() => setIsCredentialsModalOpen(false)}
-        onManualTokenSubmit={handleManualToken}
-        currentSpreadsheetId={authState.spreadsheetId}
-        onUpdateSpreadsheetId={handleUpdateSpreadsheetId}
-      />
-
-      {/* Paste Sheet Data Modal */}
-      <PasteDataModal
-        isOpen={isPasteModalOpen}
-        onClose={() => setIsPasteModalOpen(false)}
-        onImportActivities={handleImportActivities}
-        availableGerencias={gerenciasSummaries.map((g) => g.gerencia)}
+      {/* Google Sheets Connection & Workbook Upload Modal */}
+      <ConnectSheetsModal
+        isOpen={isConnectModalOpen}
+        onClose={() => setIsConnectModalOpen(false)}
+        currentRecords={records}
+        syncConfig={syncConfig}
+        onImportSuccess={handleImportSuccess}
       />
     </div>
   );

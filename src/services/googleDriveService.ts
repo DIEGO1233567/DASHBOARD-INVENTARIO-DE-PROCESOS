@@ -145,7 +145,12 @@ export function shouldIgnoreSheet(title: string): boolean {
 }
 
 const cleanString = (s: string) =>
-  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+  String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .toUpperCase()
+    .trim();
 
 function findColIndex(headers: string[], exactKeywords: string[], includeKeywords: string[]): number {
   for (const kw of exactKeywords) {
@@ -240,8 +245,8 @@ export function parseRowsToActivities(rows: any[][], defaultGerencia: string): A
   );
   const idxResp = findColIndex(
     headers,
-    ['REPONSABLE FUNCIONAL', 'RESPONSABLE FUNCIONAL', 'REPONSABLE', 'RESPONSABLE', 'ENCARGADO'],
-    ['REPONSABLE', 'RESPONSABLE']
+    ['REPONSABLE FUNCIONAL', 'RESPONSABLE FUNCIONAL', 'REPONSABLE', 'RESPONSABLE', 'COLABORADOR', 'ENCARGADO'],
+    ['RESPONSABLE', 'REPONSABLE', 'COLABORADOR']
   );
   const idxDigit = findColIndex(
     headers,
@@ -265,18 +270,18 @@ export function parseRowsToActivities(rows: any[][], defaultGerencia: string): A
   );
   const idxHrsAct = findColIndex(
     headers,
-    ['HORAS MENSUALES ACTIVIDAD (TOTAL)', 'HORAS MENSUALES ACTIVIDAD', 'HORAS ACTIVIDAD', 'HORAS TOTALES', 'HORAS MENSUALES TOTAL'],
-    ['HORAS MENSUALES ACTIVIDAD', 'HORAS ACTIVIDAD', 'HORAS TOTALES']
+    ['HORAS MENSUALES ACTIVIDAD (TOTAL)', 'HORAS MENSUALES ACTIVIDAD(TOTAL)'],
+    ['HORAS MENSUALES ACTIVIDAD (TOTAL)']
   );
   const idxHrsAuto = findColIndex(
     headers,
-    ['HORAS MENSUALES AUTOMATIZADAS (TOTAL)', 'HORAS MENSUALES AUTOMATIZADAS', 'HORAS AUTOMATIZADAS', 'HORAS AUTO'],
-    ['HORAS MENSUALES AUTOMATIZADAS', 'HORAS AUTOMATIZADAS', 'HORAS AUTO']
+    ['HORAS MENSUALES AUTOMATIZADAS (TOTAL)', 'HORAS MENSUALES AUTOMATIZADA (TOTAL)', 'HORAS MENSUALES AUTOMATIZADAS(TOTAL)'],
+    ['HORAS MENSUALES AUTOMATIZADAS (TOTAL)', 'HORAS MENSUALES AUTOMATIZADA (TOTAL)']
   );
   const idxHrsMan = findColIndex(
     headers,
-    ['HORAS MANUALES (TOTAL)', 'HORAS MANUALES', 'HORAS MANUAL', 'HORAS RESIDUALES'],
-    ['HORAS MANUAL']
+    ['HORAS MANUALES (TOTAL)', 'HORAS MANUAL (TOTAL)', 'HORAS MANUALES(TOTAL)'],
+    ['HORAS MANUALES (TOTAL)', 'HORAS MANUAL (TOTAL)']
   );
   const idxGerencia = findColIndex(
     headers,
@@ -300,15 +305,17 @@ export function parseRowsToActivities(rows: any[][], defaultGerencia: string): A
       return fallback;
     };
 
-    const rowArea = normalizeGerenciaName(getVal(idxArea));
+    const rawArea = getVal(idxArea);
     const isGenericDefault = !defaultGerencia || defaultGerencia === 'General' || defaultGerencia.includes('.csv') || defaultGerencia.includes('.xlsx');
-    const rowGerencia = normalizeGerenciaName(
-      getVal(idxGerencia) || (!isGenericDefault ? defaultGerencia : rowArea) || rowArea || 'General'
-    );
+    // Each sheet in the workbook is named after its corresponding Gerencia
+    const rowGerencia = (!isGenericDefault && defaultGerencia)
+      ? defaultGerencia.trim()
+      : (getVal(idxGerencia) || rawArea || 'General');
+    const rowArea = rawArea || rowGerencia;
 
     const actName = getVal(idxAct) || getVal(idxMacro) || `Actividad ${i}`;
-    const macroName = getVal(idxMacro) || getVal(idxArea) || 'General';
-    const areaName = rowArea || rowGerencia;
+    const macroName = getVal(idxMacro) || 'General';
+    const areaName = rowArea;
 
     // Check digitalization: SI, SÍ, YES, 1, TRUE
     const digitRaw = cleanString(getVal(idxDigit, 'NO'));
@@ -325,26 +332,11 @@ export function parseRowsToActivities(rows: any[][], defaultGerencia: string): A
     const rawHrsMan = getVal(idxHrsMan, '0');
     const rawPctAuto = getVal(idxPctAuto, '0');
 
+    // Take exact hours directly from the specified columns
     const hrsAct = normalizeNumber(rawHrsAct);
+    const hrsAuto = normalizeNumber(rawHrsAuto);
+    const hrsMan = normalizeNumber(rawHrsMan);
     const pctAuto = normalizePercent(rawPctAuto);
-    let hrsAuto = normalizeNumber(rawHrsAuto);
-    let hrsMan = normalizeNumber(rawHrsMan);
-
-    // If hours automated is 0 but percentage > 0 and activity hours > 0
-    if (hrsAuto === 0 && pctAuto > 0 && hrsAct > 0) {
-      hrsAuto = Math.round((hrsAct * (pctAuto / 100)) * 10) / 10;
-    }
-
-    // If hours manual is not provided or 0, calculate as act - auto
-    if (hrsMan === 0 && hrsAct > 0) {
-      hrsMan = Math.max(0, Math.round((hrsAct - hrsAuto) * 10) / 10);
-    }
-
-    // If activity hours is 0 but auto and man are provided, sum them
-    let finalHrsAct = hrsAct;
-    if (finalHrsAct === 0 && (hrsAuto > 0 || hrsMan > 0)) {
-      finalHrsAct = Math.round((hrsAuto + hrsMan) * 10) / 10;
-    }
 
     activities.push({
       id: `${rowGerencia}-${i}`,
@@ -355,12 +347,12 @@ export function parseRowsToActivities(rows: any[][], defaultGerencia: string): A
       actividadProceso: actName,
       frecuencia: getVal(idxFrec, 'MENSUAL'),
       puesto: getVal(idxPuesto, 'Especialista'),
-      responsableFuncional: getVal(idxResp, 'Equipo Funcional'),
+      responsableFuncional: getVal(idxResp, 'Equipo Funcional').replace(/\s+/g, ' ').trim(),
       digitalizado: digitVal,
       esAutomatizable: autoVal,
       herramienta: getVal(idxTool, 'N/A'),
       porcentajeAutomatizado: pctAuto,
-      horasMensualesActividad: finalHrsAct,
+      horasMensualesActividad: hrsAct,
       horasMensualesAutomatizadas: hrsAuto,
       horasManuales: hrsMan,
       satisfaccionOperativa: 97.5,
@@ -380,7 +372,7 @@ export function parseCsvText(csvText: string): string[][] {
     const workbook = XLSX.read(csvText, { type: 'string' });
     const firstSheetName = workbook.SheetNames[0];
     if (firstSheetName && workbook.Sheets[firstSheetName]) {
-      return XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], { header: 1, defval: '' }) as string[][];
+      return XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], { header: 1, raw: false, defval: '' }) as string[][];
     }
   } catch (e) {
     console.warn('XLSX csv parse fallback:', e);
@@ -411,7 +403,7 @@ export async function tryDriveApiExportXlsx(accessToken: string, fileId: string)
     }
 
     const arrayBuffer = await exportRes.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const workbook = XLSX.read(arrayBuffer, { type: 'array', cellNF: true, cellText: true });
     const sheetMetaList = workbook.Workbook?.Sheets || [];
 
     const allActivities: ActivityItem[] = [];
@@ -436,7 +428,7 @@ export async function tryDriveApiExportXlsx(accessToken: string, fileId: string)
       const worksheet = workbook.Sheets[sheetName];
       if (!worksheet) continue;
 
-      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' }) as any[][];
       const sheetActs = parseRowsToActivities(rows, cleanName);
       allActivities.push(...sheetActs);
     }
@@ -460,7 +452,7 @@ export async function tryDriveApiExportXlsx(accessToken: string, fileId: string)
  * Ignores hidden sheets and KPIS sheet.
  */
 export function parseExcelBuffer(buffer: ArrayBuffer): { activities: ActivityItem[]; sheetNames: string[] } {
-  const workbook = XLSX.read(buffer, { type: 'array' });
+  const workbook = XLSX.read(buffer, { type: 'array', cellNF: true, cellText: true });
   const sheetMetaList = workbook.Workbook?.Sheets || [];
   const allActivities: ActivityItem[] = [];
   const sheetNames: string[] = [];
@@ -480,7 +472,7 @@ export function parseExcelBuffer(buffer: ArrayBuffer): { activities: ActivityIte
     const worksheet = workbook.Sheets[sheetName];
     if (!worksheet) continue;
 
-    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' }) as any[][];
     const sheetActs = parseRowsToActivities(rows, cleanName);
     allActivities.push(...sheetActs);
   }

@@ -31,21 +31,46 @@ export function normalizePercent(val: any): number {
 }
 
 /**
- * Normalizes numeric hours values handling commas, decimals, and text suffixes.
+ * Normalizes numeric hours values handling commas, decimals, duration format (e.g. 60:00:00, 13:30), and text suffixes.
  */
 export function normalizeNumber(val: any): number {
-  if (typeof val === 'number') return isNaN(val) ? 0 : Math.round(val * 10) / 10;
-  if (!val) return 0;
+  if (val === null || val === undefined || val === '') return 0;
+  if (typeof val === 'number') {
+    return isNaN(val) ? 0 : Math.round(val * 100) / 100;
+  }
   let str = String(val).trim();
-  if (str.includes(',') && !str.includes('.')) {
+  if (str === '-' || str === 'N/A' || str === 'NA' || str === 'null' || str === 'undefined') return 0;
+
+  // Clean brackets and hour units
+  str = str.replace(/[\[\]]/g, '').replace(/\bhoras?\b/gi, '').replace(/\bhrs?\.?\b/gi, '').trim();
+
+  // Duration format check: HH:MM:SS or HH:MM (e.g. 60:00:00 -> 60h, 60:30:00 -> 60.5h, 1:30 -> 1.5h)
+  if (str.includes(':')) {
+    const parts = str.split(':').map((p) => p.trim());
+    if (parts.length >= 2) {
+      const h = parseFloat(parts[0]) || 0;
+      const m = parseFloat(parts[1]) || 0;
+      const s = parts.length >= 3 ? parseFloat(parts[2]) || 0 : 0;
+      const total = h + m / 60 + s / 3600;
+      return Math.round(total * 100) / 100;
+    }
+  }
+
+  // Handle standard decimal numbers with commas or dots
+  if (/\d+\.\d{3},\d+/.test(str)) {
+    str = str.replace(/\./g, '').replace(',', '.');
+  } else if (/\d+,\d{3}\.\d+/.test(str)) {
+    str = str.replace(/,/g, '');
+  } else if (str.includes(',') && !str.includes('.')) {
     str = str.replace(',', '.');
   } else {
     str = str.replace(/,/g, '');
   }
+
   const match = str.match(/[-+]?[0-9]*\.?[0-9]+/);
   if (!match) return 0;
   const num = parseFloat(match[0]);
-  return isNaN(num) ? 0 : Math.round(num * 10) / 10;
+  return isNaN(num) ? 0 : Math.round(num * 100) / 100;
 }
 
 /**

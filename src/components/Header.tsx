@@ -50,7 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                Automatización y Carga Operativa
+                Tablero Inventario de Procesos
               </h1>
             </div>
           </div>

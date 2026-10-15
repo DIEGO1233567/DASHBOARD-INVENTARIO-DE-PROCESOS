@@ -212,7 +212,7 @@ export const ExecutiveKpiSummary: React.FC<ExecutiveKpiSummaryProps> = ({
 
             <div className="flex items-baseline gap-2 mb-3">
               <span className="text-4xl font-black text-slate-900 tracking-tight">
-                {metrics.totalHorasActividad.toLocaleString()}
+                {metrics.totalHorasActividad.toLocaleString('es-MX')}
               </span>
               <span className="text-xs text-slate-500 font-semibold">horas / mes</span>
             </div>
@@ -222,13 +222,13 @@ export const ExecutiveKpiSummary: React.FC<ExecutiveKpiSummaryProps> = ({
               <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
                 <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">Liberadas (Auto)</div>
                 <div className="text-sm font-black text-emerald-900">
-                  {metrics.totalHorasAutomatizadas.toLocaleString()}h
+                  {metrics.totalHorasAutomatizadas.toLocaleString('es-MX')}h
                 </div>
               </div>
               <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200">
                 <div className="text-[10px] text-amber-800 font-bold uppercase tracking-wider">Carga Manual</div>
                 <div className="text-sm font-black text-amber-900">
-                  {metrics.totalHorasManuales.toLocaleString()}h
+                  {metrics.totalHorasManuales.toLocaleString('es-MX')}h
                 </div>
               </div>
             </div>
