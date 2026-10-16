@@ -39,17 +39,33 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
     let totHoras = 0;
     let totManual = 0;
     let totAuto = 0;
+    let totNoAuto = 0;
+    let totPendienteAuto = 0;
     let totActividades = 0;
 
     summaries.forEach((s) => {
+      const man = s.horasManuales || 0;
+      const pend = Math.min(man, Math.max(0, s.horasPotencialAutomatizable || 0));
+      const noAuto = Math.max(0, man - pend);
+
       totHoras += s.horasTotales || 0;
-      totManual += s.horasManuales || 0;
+      totManual += man;
       totAuto += s.horasAutomatizadas || 0;
+      totNoAuto += noAuto;
+      totPendienteAuto += pend;
       totActividades += s.totalActividades || 0;
     });
 
     const pctGlobal = totHoras > 0 ? (totAuto / totHoras) * 100 : 0;
-    return { totHoras, totManual, totAuto, totActividades, pctGlobal };
+    return {
+      totHoras,
+      totManual,
+      totAuto,
+      totNoAuto,
+      totPendienteAuto,
+      totActividades,
+      pctGlobal,
+    };
   }, [summaries]);
 
   // Sorted summaries
@@ -204,19 +220,27 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
 
           {/* Quick Metrics Badges */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200/80 rounded-lg text-xs">
-              <Clock className="w-3.5 h-3.5 text-amber-700" />
-              <span className="text-slate-600 font-medium">Horas Manuales:</span>
-              <span className="font-bold font-mono tabular-nums text-amber-900">
-                {formatHours(totals.totManual)} h
-              </span>
-            </div>
-
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200/80 rounded-lg text-xs">
               <Zap className="w-3.5 h-3.5 text-blue-700" />
               <span className="text-slate-600 font-medium">Horas Auto:</span>
               <span className="font-bold font-mono tabular-nums text-blue-900">
                 {formatHours(totals.totAuto)} h
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50/70 border border-[#ffdf80] rounded-lg text-xs">
+              <span className="w-2.5 h-2.5 rounded-xs inline-block shadow-2xs border border-amber-300" style={{ backgroundColor: '#ffdf80' }} />
+              <span className="text-slate-600 font-medium">Manual No Auto:</span>
+              <span className="font-bold font-mono tabular-nums text-slate-800">
+                {formatHours(totals.totNoAuto)} h
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50/70 border border-amber-300 rounded-lg text-xs">
+              <span className="w-2.5 h-2.5 rounded-xs bg-amber-400 inline-block shadow-2xs" />
+              <span className="text-slate-600 font-medium">Manual Pendiente Auto:</span>
+              <span className="font-bold font-mono tabular-nums text-amber-800">
+                {formatHours(totals.totPendienteAuto)} h
               </span>
             </div>
 
@@ -233,18 +257,22 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
         {/* Toolbar: View Mode, Sorting, Filter Indicator */}
         <div className="pt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
           {/* Legend and Interactivity notice */}
-          <div className="flex flex-wrap items-center gap-4 text-slate-700">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-slate-700">
             <div className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-xs bg-blue-600 inline-block shadow-2xs"></span>
-              <span className="font-medium">Horas Automatizadas</span>
+              <span className="font-medium text-slate-800">Horas Automatizadas</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-xs bg-amber-500 inline-block shadow-2xs"></span>
-              <span className="font-medium">Horas Manuales</span>
+              <span className="w-3 h-3 rounded-xs inline-block shadow-2xs border border-amber-300" style={{ backgroundColor: '#ffdf80' }}></span>
+              <span className="font-medium text-slate-800">Horas Manuales No Automatizables</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-xs bg-amber-400 inline-block shadow-2xs"></span>
+              <span className="font-medium text-slate-800">Horas Manuales Pendientes por Automatizar</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white inline-block shadow-2xs"></span>
-              <span className="font-medium text-emerald-800">● Volumen de Actividades (Eje derecho)</span>
+              <span className="font-semibold text-emerald-800">● Volumen Actividades (Eje der.)</span>
             </div>
           </div>
 
@@ -331,9 +359,15 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
                   <stop offset="0%" stopColor="#3b82f6" />
                   <stop offset="100%" stopColor="#1d4ed8" />
                 </linearGradient>
-                <linearGradient id="amberBarGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f59e0b" />
-                  <stop offset="100%" stopColor="#d97706" />
+                {/* Horas Manuales No Automatizables (#ffdf80) */}
+                <linearGradient id="amberNoAutoGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ffea9f" />
+                  <stop offset="100%" stopColor="#ffdf80" />
+                </linearGradient>
+                {/* Horas Manuales Pendientes por Automatizar (Ámbar brillante / Dorado) */}
+                <linearGradient id="amberPendienteGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#fbbf24" />
+                  <stop offset="100%" stopColor="#f59e0b" />
                 </linearGradient>
                 <linearGradient id="emeraldAreaGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#10b981" stopOpacity="0.22" />
@@ -421,14 +455,26 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
                 const hMan = summary.horasManuales || 0;
                 const hTot = summary.horasTotales || 0;
 
+                const hManPendienteAuto = Math.min(
+                  hMan,
+                  Math.max(0, summary.horasPotencialAutomatizable || 0)
+                );
+                const hManNoAuto = Math.max(0, hMan - hManPendienteAuto);
+
                 const bottomY = padding.top + chartHeight;
 
                 if (viewMode === 'stacked') {
+                  // Segment 1 (Base): Automatizadas
                   const yAutoTop = getYHours(hAuto);
                   const autoHeight = Math.max(bottomY - yAutoTop, 0);
 
+                  // Segment 2 (Middle): Manuales No Automatizables
+                  const yNoAutoTop = getYHours(hAuto + hManNoAuto);
+                  const noAutoHeight = Math.max(yAutoTop - yNoAutoTop, 0);
+
+                  // Segment 3 (Top): Manuales Pendientes por Automatizar
                   const yTotTop = getYHours(hTot);
-                  const manHeight = Math.max(yAutoTop - yTotTop, 0);
+                  const pendienteHeight = Math.max(yNoAutoTop - yTotTop, 0);
 
                   const barX = cx - barWidth / 2;
 
@@ -458,28 +504,41 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
                         />
                       )}
 
-                      {/* Automated Hours Bar (Bottom) */}
+                      {/* 1. Automated Hours Bar (Bottom - Azul) */}
                       {autoHeight > 0 && (
                         <rect
                           x={barX}
                           y={yAutoTop}
                           width={barWidth}
                           height={autoHeight}
-                          rx={manHeight === 0 ? 4 : 0}
+                          rx={noAutoHeight === 0 && pendienteHeight === 0 ? 4 : 0}
                           fill="url(#blueBarGrad)"
                           className={isHovered ? 'filter brightness-110' : ''}
                         />
                       )}
 
-                      {/* Manual Hours Bar (Top) */}
-                      {manHeight > 0 && (
+                      {/* 2. Manual No Automatizable Bar (Middle - Ámbar Oscuro) */}
+                      {noAutoHeight > 0 && (
+                        <rect
+                          x={barX}
+                          y={yNoAutoTop}
+                          width={barWidth}
+                          height={noAutoHeight}
+                          rx={pendienteHeight === 0 ? 4 : 0}
+                          fill="url(#amberNoAutoGrad)"
+                          className={isHovered ? 'filter brightness-110' : ''}
+                        />
+                      )}
+
+                      {/* 3. Manual Pendiente por Automatizar Bar (Top - Ámbar Brillante) */}
+                      {pendienteHeight > 0 && (
                         <rect
                           x={barX}
                           y={yTotTop}
                           width={barWidth}
-                          height={manHeight}
+                          height={pendienteHeight}
                           rx={4}
-                          fill="url(#amberBarGrad)"
+                          fill="url(#amberPendienteGrad)"
                           className={isHovered ? 'filter brightness-110' : ''}
                         />
                       )}
@@ -504,8 +563,11 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
                   const yAutoTop = getYHours(hAuto);
                   const autoHeight = Math.max(bottomY - yAutoTop, 0);
 
+                  const yManNoAutoTop = getYHours(hManNoAuto);
+                  const manNoAutoHeight = Math.max(bottomY - yManNoAutoTop, 0);
+
                   const yManTop = getYHours(hMan);
-                  const manHeight = Math.max(bottomY - yManTop, 0);
+                  const manPendienteHeight = Math.max(yManNoAutoTop - yManTop, 0);
 
                   const minTop = Math.min(yAutoTop, yManTop);
 
@@ -548,15 +610,28 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
                         />
                       )}
 
-                      {/* Manual bar */}
-                      {manHeight > 0 && (
+                      {/* Manual No Auto bar */}
+                      {manNoAutoHeight > 0 && (
+                        <rect
+                          x={barXMan}
+                          y={yManNoAutoTop}
+                          width={halfBarWidth}
+                          height={manNoAutoHeight}
+                          rx={manPendienteHeight === 0 ? 3 : 0}
+                          fill="url(#amberNoAutoGrad)"
+                          className={isHovered ? 'filter brightness-110' : ''}
+                        />
+                      )}
+
+                      {/* Manual Pendiente Auto bar */}
+                      {manPendienteHeight > 0 && (
                         <rect
                           x={barXMan}
                           y={yManTop}
                           width={halfBarWidth}
-                          height={manHeight}
+                          height={manPendienteHeight}
                           rx={3}
-                          fill="url(#amberBarGrad)"
+                          fill="url(#amberPendienteGrad)"
                           className={isHovered ? 'filter brightness-110' : ''}
                         />
                       )}
@@ -626,25 +701,41 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
                     {/* Inner core */}
                     <circle cx={pt.x} cy={pt.y} r={3} fill="#059669" />
 
-                    {/* Numeric tag for activities */}
-                    <g transform={`translate(${pt.x}, ${pt.y - 12})`}>
-                      <rect
-                        x={-16}
-                        y={-12}
-                        width={32}
-                        height={14}
-                        rx={3}
-                        fill="#065f46"
-                      />
-                      <text
-                        x={0}
-                        y={-2}
-                        textAnchor="middle"
-                        className="text-[9px] font-mono font-bold fill-white"
-                      >
-                        {formatThousands(pt.val)}
-                      </text>
-                    </g>
+                    {/* Numeric tag for activities with ample padding so number never overflows its frame */}
+                    {(() => {
+                      const valStr = formatThousands(pt.val);
+                      // Generous space between the number and tag border (min width 38px, height 17px)
+                      const tagWidth = Math.max(38, Math.round(valStr.length * 7.5 + 16));
+                      const halfW = tagWidth / 2;
+                      const tagHeight = 17;
+
+                      return (
+                        <g transform={`translate(${pt.x}, ${pt.y - 12})`}>
+                          <rect
+                            x={-halfW}
+                            y={-14}
+                            width={tagWidth}
+                            height={tagHeight}
+                            rx={4}
+                            fill="#065f46"
+                            stroke="#047857"
+                            strokeWidth={1}
+                          />
+                          <text
+                            x={0}
+                            y={-2}
+                            textAnchor="middle"
+                            fontSize={9}
+                            fontWeight="bold"
+                            fill="#ffffff"
+                            style={{ fontSize: '9px', fontWeight: 'bold' }}
+                            className="text-[9px] font-mono font-bold fill-white"
+                          >
+                            {valStr}
+                          </text>
+                        </g>
+                      );
+                    })()}
                   </g>
                 );
               })}
@@ -747,78 +838,90 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
                 </span>
               </div>
 
-              <div className="mt-2 space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <span className="text-amber-400 flex items-center gap-1.5 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-                    Horas Manuales:
-                  </span>
-                  <span className="font-mono font-bold text-white">
-                    {formatHours(hoveredGerencia.horasManuales)} h{' '}
-                    <span className="text-[10px] text-slate-400">
-                      (
-                      {formatThousands(
-                        hoveredGerencia.horasTotales > 0
-                          ? ((hoveredGerencia.horasManuales || 0) / hoveredGerencia.horasTotales) * 100
-                          : 0,
-                        1
-                      )}
-                      %)
-                    </span>
-                  </span>
-                </div>
+              {(() => {
+                const hMan = hoveredGerencia.horasManuales || 0;
+                const hPend = Math.min(
+                  hMan,
+                  Math.max(0, hoveredGerencia.horasPotencialAutomatizable || 0)
+                );
+                const hNoAuto = Math.max(0, hMan - hPend);
 
-                <div className="flex justify-between items-center">
-                  <span className="text-blue-400 flex items-center gap-1.5 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                    Horas Automatizadas:
-                  </span>
-                  <span className="font-mono font-bold text-white">
-                    {formatHours(hoveredGerencia.horasAutomatizadas)} h{' '}
-                    <span className="text-[10px] text-slate-400">
-                      (
-                      {formatThousands(
-                        hoveredGerencia.horasTotales > 0
-                          ? ((hoveredGerencia.horasAutomatizadas || 0) / hoveredGerencia.horasTotales) * 100
-                          : 0,
-                        1
-                      )}
-                      %)
-                    </span>
-                  </span>
-                </div>
+                return (
+                  <div className="mt-2 space-y-1.5">
+                    {/* Horas Automatizadas */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-blue-400 flex items-center gap-1.5 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                        Horas Automatizadas:
+                      </span>
+                      <span className="font-mono font-bold text-white">
+                        {formatHours(hoveredGerencia.horasAutomatizadas)} h
+                      </span>
+                    </div>
 
-                <div className="flex justify-between items-center pt-1 border-t border-slate-800 font-semibold">
-                  <span className="text-slate-300">Carga Horaria Total:</span>
-                  <span className="font-mono text-white">
-                    {formatHours(hoveredGerencia.horasTotales)} h
-                  </span>
-                </div>
+                    {/* Horas Manuales No Auto */}
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1.5 font-medium" style={{ color: '#ffdf80' }}>
+                        <span className="w-2 h-2 rounded-full border border-amber-300" style={{ backgroundColor: '#ffdf80' }}></span>
+                        Manual No Auto:
+                      </span>
+                      <span className="font-mono font-bold" style={{ color: '#ffdf80' }}>
+                        {formatHours(hNoAuto)} h
+                      </span>
+                    </div>
 
-                <div className="flex justify-between items-center pt-1 border-t border-slate-800">
-                  <span className="text-emerald-400 flex items-center gap-1.5 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                    Volumen de Actividades:
-                  </span>
-                  <span className="font-mono font-bold text-emerald-300">
-                    {formatThousands(hoveredGerencia.totalActividades)} tareas
-                  </span>
-                </div>
+                    {/* Horas Manuales Pendientes por Auto */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-amber-300 flex items-center gap-1.5 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                        Manual Pendiente Auto:
+                      </span>
+                      <span className="font-mono font-bold text-amber-300">
+                        {formatHours(hPend)} h
+                      </span>
+                    </div>
 
-                <div className="flex justify-between items-center text-[11px] text-slate-400">
-                  <span>Procesos Macro:</span>
-                  <span className="font-mono text-slate-200">
-                    {formatThousands(hoveredGerencia.totalProcesosMacro)}
-                  </span>
-                </div>
+                    {/* Total Horas Manuales */}
+                    <div className="flex justify-between items-center pt-1 border-t border-slate-800 text-[11px]">
+                      <span className="text-slate-400 font-medium">Total Horas Manuales:</span>
+                      <span className="font-mono font-bold text-amber-400">
+                        {formatHours(hMan)} h
+                      </span>
+                    </div>
 
-                <div className="flex justify-between items-center text-[11px] text-slate-400">
-                  <span>Colaboradores:</span>
-                  <span className="font-mono text-slate-200">
-                    {formatThousands(hoveredGerencia.totalColaboradores)} personas
-                  </span>
-                </div>
-              </div>
+                    <div className="flex justify-between items-center pt-1 border-t border-slate-800 font-semibold">
+                      <span className="text-slate-300">Carga Horaria Total:</span>
+                      <span className="font-mono text-white">
+                        {formatHours(hoveredGerencia.horasTotales)} h
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-1 border-t border-slate-800">
+                      <span className="text-emerald-400 flex items-center gap-1.5 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        Volumen de Actividades:
+                      </span>
+                      <span className="font-mono font-bold text-emerald-300">
+                        {formatThousands(hoveredGerencia.totalActividades)} tareas
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-[11px] text-slate-400">
+                      <span>Procesos Macro:</span>
+                      <span className="font-mono text-slate-200">
+                        {formatThousands(hoveredGerencia.totalProcesosMacro)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-[11px] text-slate-400">
+                      <span>Colaboradores:</span>
+                      <span className="font-mono text-slate-200">
+                        {formatThousands(hoveredGerencia.totalColaboradores)} personas
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="mt-2.5 pt-1.5 border-t border-slate-800/80 text-[10px] text-blue-300 text-center font-medium">
                 Haz clic para {selectedGerencia === hoveredGerencia.gerencia ? 'desmarcar' : 'filtrar todo el tablero por esta gerencia'}
@@ -831,7 +934,7 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
         <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 px-1">
           <span className="flex items-center gap-1.5">
             <Info className="w-3.5 h-3.5 text-slate-400" />
-            Las barras reflejan la carga de horas (azul: automatizadas, ámbar: manuales); la línea verde conecta el volumen de actividades de cada gerencia.
+            Las barras reflejan la carga de horas (azul: automatizadas, amarillo: manuales no automatizables, ámbar dorado: pendientes por automatizar); la línea verde conecta el volumen de actividades de cada gerencia.
           </span>
           <span className="text-slate-400 hidden sm:inline">
             {sortedSummaries.length} gerencias registradas
