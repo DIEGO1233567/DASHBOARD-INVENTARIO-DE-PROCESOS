@@ -70,7 +70,7 @@ async function captureSvgAsBase64Png(svgElement: SVGSVGElement): Promise<string 
             return;
           }
 
-          // Crisp white background so dark or gray text has optimal contrast
+          // Crisp white background
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
@@ -99,21 +99,19 @@ async function captureSvgAsBase64Png(svgElement: SVGSVGElement): Promise<string 
 }
 
 /**
- * Generates and downloads a rich, formatted .xlsx file containing:
- * - Encabezados (Indicadores Clave de Inicio / KPIs Ejecutivos)
- * - Gráfica Comparativa con imagen en alta resolución y tabla de datos completa
- * - Sección 01: Resumen Gerencial Pivot y desglose de Procesos Macro
- * - Sección 02: Carga Laboral por Colaborador (Responsable Funcional con base en Horas Manuales)
+ * Generates and downloads the executive Excel workbook:
  *
- * NOTA: Conforme a la solicitud del usuario, NO se incluyen las Secciones 03 ni 04 (Catálogo maestro de todas las filas individuales).
- * Las columnas cuentan con ancho ampliado y la gráfica tiene dimensiones completas para evitar cortes de información.
+ * Hoja 1: Sección 01 con tabla por gerencia y abajo la gráfica (sin cuadros resumen ni nada más)
+ * Hoja 2: Zoom al Desglose de Procesos Macro de todas las gerencias (en el mismo orden de la Sección 1)
+ * Hoja 3: Desglose de las Actividades de cada proceso macro de cada gerencia (nueva hoja de la Sección 01)
+ * Hoja 4: Base de datos de la Sección 2 en el mismo orden de gerencias (CXP, CE/GDP, etc.) CON la columna Actividad / Proceso agregada para llegar al detalle por colaborador
  */
 export async function exportExecutiveSummaryXlsx(
-  kpi: TopKpiData,
+  _kpi: TopKpiData,
   summaries: GerenciaSummaryItem[],
   colaboradores: ColaboradorSummaryItem[],
   selectedGerencia: string = 'ALL',
-  fileName: string = 'Resumen_Ejecutivo_Encabezados_a_Sec2.xlsx'
+  fileName: string = 'Reporte_Sec1_y_Sec2.xlsx'
 ): Promise<void> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Tablero Inventario de Procesos';
@@ -131,187 +129,229 @@ export async function exportExecutiveSummaryXlsx(
     }
   }
 
-  // Filter scoped collaborators
-  const scopedColabs =
+  // Filter scoped summaries and collaborators based on selection
+  const scopedSummaries =
+    selectedGerencia === 'ALL'
+      ? summaries
+      : summaries.filter((s) => s.gerencia === selectedGerencia);
+
+  const scopedColaboradores =
     selectedGerencia === 'ALL'
       ? colaboradores
       : colaboradores.filter((c) => c.gerencia === selectedGerencia);
 
-  const totalColabs = scopedColabs.length;
-  const totalHorasManualesColab = scopedColabs.reduce((acc, c) => acc + c.horasManuales, 0);
-  const avgHorasManualesColab = totalColabs > 0 ? totalHorasManualesColab / totalColabs : 0;
-  const totalTareasMan = scopedColabs.reduce((acc, c) => acc + c.tareasManuales, 0);
-  const totalTareasAuto = scopedColabs.reduce((acc, c) => acc + c.tareasAutomatizadas, 0);
+  // Map of total manual hours per collaborator for % Carga Colab calculations
+  const colabManualHoursMap = new Map<string, number>();
+  for (const c of scopedColaboradores) {
+    colabManualHoursMap.set(c.colaborador.trim(), c.horasManuales);
+  }
 
-  // -------------------------------------------------------------
-  // HOJA 1: RESUMEN EJECUTIVO (ENCABEZADOS HASTA SECCIÓN 02)
-  // -------------------------------------------------------------
-  const ws1 = workbook.addWorksheet('Resumen Ejecutivo', {
-    views: [{ showGridLines: true }],
-  });
-
-  // Generous column widths so no text, metrics or titles are truncated
-  ws1.columns = [
-    { width: 46 }, // A: Concepto / Gerencia
-    { width: 28 }, // B: Cifra Principal / Macro / Horas Manuales
-    { width: 28 }, // C: Equivalente FTE / Actividades / Horas Auto
-    { width: 36 }, // D: Promedio / Detalle / Horas Totales
-    { width: 30 }, // E: Volumen Adicional / Actividades
-    { width: 30 }, // F: Estado / Distribución / % Automatizado
-    { width: 28 }, // G: FTE Total / Observaciones
-    { width: 24 }, // H: Notas Adicionales
-  ];
-
-  // Header banner
-  ws1.mergeCells('A1:G1');
-  const titleCell = ws1.getCell('A1');
-  titleCell.value = 'TABLERO INVENTARIO DE PROCESOS - REPORTE EJECUTIVO (ENCABEZADOS A SECCIÓN 02)';
-  titleCell.font = { name: 'Arial', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
-  titleCell.fill = {
-    type: 'pattern',
-    pattern: 'solid',
-    fgColor: { argb: 'FF0F172A' }, // Slate 900
-  };
-  titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
-  ws1.getRow(1).height = 36;
-
-  // Subtitle info
-  ws1.mergeCells('A2:G2');
-  const subCell = ws1.getCell('A2');
+  const now = new Date();
+  const dateFormatted = `${now.toLocaleDateString('es-MX')} ${now.toLocaleTimeString('es-MX', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
   const scopeText =
     selectedGerencia === 'ALL'
       ? 'Consolidado Global (Todas las Gerencias)'
       : `Gerencia: ${selectedGerencia}`;
-  const now = new Date();
-  subCell.value = `Alcance: ${scopeText}  |  Fecha: ${now.toLocaleDateString('es-MX')} ${now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}  |  Jornada Base: 152 h/mes  |  Excluye Secciones 03 y 04`;
-  subCell.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF334155' } };
-  subCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  // =========================================================================
+  // HOJA 1: SECCIÓN 01 - RESUMEN POR GERENCIA Y ABAJO LA GRÁFICA (SIN NADA MÁS)
+  // =========================================================================
+  const ws1 = workbook.addWorksheet('Sección 01 - Gerencias', {
+    views: [{ showGridLines: true }],
+  });
+
+  ws1.columns = [
+    { width: 44 }, // A: Gerencia
+    { width: 22 }, // B: Procesos Macro
+    { width: 24 }, // C: Actividades Únicas
+    { width: 22 }, // D: Colaboradores
+    { width: 22 }, // E: Horas Auto. (h)
+    { width: 22 }, // F: Horas Manuales (h)
+    { width: 24 }, // G: Horas Totales (h)
+  ];
+
+  // Header banner
+  ws1.mergeCells('A1:G1');
+  const title1 = ws1.getCell('A1');
+  title1.value = 'SECCIÓN 01: RESUMEN GERENCIAL - PROCESOS MACRO, ACTIVIDADES Y HORAS';
+  title1.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+  title1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; // Slate 900
+  title1.alignment = { vertical: 'middle', horizontal: 'center' };
+  ws1.getRow(1).height = 34;
+
+  // Subtitle
+  ws1.mergeCells('A2:G2');
+  const sub1 = ws1.getCell('A2');
+  sub1.value = `Alcance: ${scopeText}  |  Fecha: ${dateFormatted}  |  Jornada Base: 152 h/mes`;
+  sub1.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF475569' } };
+  sub1.alignment = { vertical: 'middle', horizontal: 'center' };
   ws1.getRow(2).height = 20;
 
   // Empty row 3
-  ws1.getRow(3).height = 10;
+  ws1.getRow(3).height = 8;
 
-  // -------------------------------------------------------------
-  // 1. INDICADORES CLAVE DE INICIO (ENCABEZADOS KPIS)
-  // -------------------------------------------------------------
-  ws1.mergeCells('A4:G4');
-  const kpiHeader = ws1.getCell('A4');
-  kpiHeader.value = '1. INDICADORES CLAVE DE INICIO (ENCABEZADOS KPIS)';
-  kpiHeader.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-  kpiHeader.fill = {
-    type: 'pattern',
-    pattern: 'solid',
-    fgColor: { argb: 'FF1E3A8A' }, // Blue 900
-  };
-  kpiHeader.alignment = { vertical: 'middle', indent: 1 };
-  ws1.getRow(4).height = 26;
-
-  // KPI Table Headers
-  const kpiTableHeaders = [
-    'Indicador',
-    'Cifra Principal',
-    'Equivalente FTE (152h)',
-    'Promedio / Detalle',
-    'Volumen Adicional',
-    'Estado / Distribución',
-    '',
+  // Table Headers
+  const sec1Headers = [
+    'Gerencia',
+    'Procesos Macro',
+    'Actividades Únicas',
+    'Colaboradores',
+    'Horas Auto.',
+    'Horas Manuales',
+    'Horas Totales',
   ];
-  const r5 = ws1.getRow(5);
-  r5.height = 22;
-  kpiTableHeaders.forEach((th, idx) => {
-    if (idx < 6) {
-      const cell = r5.getCell(idx + 1);
-      cell.value = th;
-      cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E293B' } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-      cell.alignment = { vertical: 'middle', horizontal: idx === 0 ? 'left' : 'center' };
-      cell.border = { bottom: { style: 'medium', color: { argb: 'FFCBD5E1' } } };
-    }
+
+  const rHead1 = ws1.getRow(4);
+  rHead1.height = 26;
+  sec1Headers.forEach((th, idx) => {
+    const cell = rHead1.getCell(idx + 1);
+    cell.value = th;
+    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } }; // Blue 900
+    cell.alignment = {
+      vertical: 'middle',
+      horizontal: idx === 0 ? 'left' : idx <= 3 ? 'center' : 'right',
+    };
+    cell.border = { bottom: { style: 'medium', color: { argb: 'FF334155' } } };
   });
 
-  const avgManual =
-    kpi.colaboradoresCount > 0 ? (kpi.horasManuales / kpi.colaboradoresCount).toFixed(1) : '0';
-  const pctAuto = kpi.pctAutomatizadoGlobal.toFixed(1);
-  const pctManual = (100 - kpi.pctAutomatizadoGlobal).toFixed(1);
+  let row1Idx = 5;
+  let totMacros = 0;
+  let totActs = 0;
+  let totColabs = 0;
+  let totHorasAuto = 0;
+  let totHorasManuales = 0;
+  let totHorasTotales = 0;
 
-  const kpiRows = [
-    [
-      'Procesos Macro Evaluados',
-      `${formatThousands(kpi.macroByGerenciaCount)} procesos`,
-      'N/A',
-      `${formatThousands(kpi.gerenciasCount)} gerencias activas`,
-      'Estructura multi-proceso',
-      'Inventario consolidado',
-    ],
-    [
-      'Actividades / Procesos (Únicas)',
-      `${formatThousands(kpi.actividadesCount)} actividades`,
-      'N/A',
-      `${formatThousands(kpi.totalFilasCount)} registros evaluados`,
-      `${formatThousands(kpi.colaboradoresCount)} responsables funcionales`,
-      'Actividades únicas sin duplicar',
-    ],
-    [
-      'Horas Mensuales Manuales',
-      `${formatHours(kpi.horasManuales)} h/mes`,
-      `${formatThousands(kpi.horasManuales / 152, 1)} FTE manual`,
-      `Promedio: ${formatThousands(Number(avgManual), 1)} h/mes manuales`,
-      'Carga operativa manual',
-      `${pctManual}% del total de horas`,
-    ],
-    [
-      'Horas Manuales vs. Automatizadas (Total)',
-      `Total: ${formatHours(kpi.horasTotales)} h/mes`,
-      `${formatThousands(kpi.horasTotales / 152, 1)} FTE total`,
-      `Manual: ${formatHours(kpi.horasManuales)} h  |  Auto: ${formatHours(kpi.horasAutomatizadas)} h`,
-      `Automatización: ${pctAuto}%`,
-      `${pctAuto}% auto · ${pctManual}% manual`,
-    ],
-  ];
+  scopedSummaries.forEach((s, idx) => {
+    totMacros += s.totalProcesosMacro;
+    totActs += s.totalActividades;
+    totColabs += s.totalColaboradores;
+    totHorasAuto += s.horasAutomatizadas;
+    totHorasManuales += s.horasManuales;
+    totHorasTotales += s.horasTotales;
 
-  kpiRows.forEach((row, i) => {
-    const rowNum = 6 + i;
-    const r = ws1.getRow(rowNum);
-    r.height = 24;
-    row.forEach((val, colIdx) => {
-      const cell = r.getCell(colIdx + 1);
-      cell.value = val;
-      cell.font = { name: 'Arial', size: 9, bold: colIdx === 0 || colIdx === 1 };
-      cell.alignment = { vertical: 'middle', horizontal: colIdx === 0 ? 'left' : 'center' };
+    const r = ws1.getRow(row1Idx);
+    r.height = 22;
+
+    r.getCell(1).value = s.gerencia;
+    r.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+    r.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+
+    r.getCell(2).value = s.totalProcesosMacro;
+    r.getCell(2).numFmt = '#,##0';
+    r.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    r.getCell(3).value = s.totalActividades;
+    r.getCell(3).numFmt = '#,##0';
+    r.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    r.getCell(4).value = s.totalColaboradores;
+    r.getCell(4).numFmt = '#,##0';
+    r.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    r.getCell(5).value = s.horasAutomatizadas;
+    r.getCell(5).numFmt = '#,##0.0';
+    r.getCell(5).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E3A8A' } };
+    r.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
+
+    r.getCell(6).value = s.horasManuales;
+    r.getCell(6).numFmt = '#,##0.0';
+    r.getCell(6).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
+    r.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
+
+    r.getCell(7).value = s.horasTotales;
+    r.getCell(7).numFmt = '#,##0.0';
+    r.getCell(7).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+    r.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
+
+    for (let c = 1; c <= 7; c++) {
+      const cell = r.getCell(c);
       cell.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: i % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' },
+        fgColor: { argb: idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' },
       };
       cell.border = {
         bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
         right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
       };
-    });
+    }
+    row1Idx++;
   });
 
-  // -------------------------------------------------------------
-  // 2. GRÁFICA COMPARATIVA POR GERENCIA (IMAGEN SIN CORTES + DATOS)
-  // -------------------------------------------------------------
-  let currentExcelRow = 11;
-  ws1.getRow(currentExcelRow).height = 10;
-  currentExcelRow++;
+  // Total Consolidado Row for Section 1
+  const rTotal1 = ws1.getRow(row1Idx);
+  rTotal1.height = 25;
+  rTotal1.getCell(1).value = 'TOTAL CONSOLIDADO (SECCIÓN 01)';
+  rTotal1.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal1.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
 
-  ws1.mergeCells(`A${currentExcelRow}:G${currentExcelRow}`);
-  const chartHeader = ws1.getCell(`A${currentExcelRow}`);
-  chartHeader.value =
-    '2. GRÁFICA COMPARATIVA: HORAS MANUALES VS. AUTOMATIZADAS Y VOLUMEN DE ACTIVIDADES';
-  chartHeader.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-  chartHeader.fill = {
-    type: 'pattern',
-    pattern: 'solid',
-    fgColor: { argb: 'FF1E3A8A' },
-  };
-  chartHeader.alignment = { vertical: 'middle', indent: 1 };
-  ws1.getRow(currentExcelRow).height = 26;
-  currentExcelRow++;
+  rTotal1.getCell(2).value = totMacros;
+  rTotal1.getCell(2).numFmt = '#,##0';
+  rTotal1.getCell(2).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal1.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
 
-  // If chart image is captured, insert it with full dimensions and dedicated row clearance
+  rTotal1.getCell(3).value = totActs;
+  rTotal1.getCell(3).numFmt = '#,##0';
+  rTotal1.getCell(3).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal1.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
+
+  rTotal1.getCell(4).value = totColabs;
+  rTotal1.getCell(4).numFmt = '#,##0';
+  rTotal1.getCell(4).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal1.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
+
+  rTotal1.getCell(5).value = Number(totHorasAuto.toFixed(1));
+  rTotal1.getCell(5).numFmt = '#,##0.0';
+  rTotal1.getCell(5).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal1.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
+
+  rTotal1.getCell(6).value = Number(totHorasManuales.toFixed(1));
+  rTotal1.getCell(6).numFmt = '#,##0.0';
+  rTotal1.getCell(6).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal1.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
+
+  rTotal1.getCell(7).value = Number(totHorasTotales.toFixed(1));
+  rTotal1.getCell(7).numFmt = '#,##0.0';
+  rTotal1.getCell(7).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal1.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
+
+  for (let c = 1; c <= 7; c++) {
+    const cell = rTotal1.getCell(c);
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF1E293B' }, // Slate 800
+    };
+    cell.border = {
+      top: { style: 'medium', color: { argb: 'FF475569' } },
+      bottom: { style: 'medium', color: { argb: 'FF475569' } },
+    };
+  }
+  row1Idx++;
+
+  // -------------------------------------------------------------
+  // ABAJO DE LA TABLA: LA GRÁFICA COMPARATIVA (SIN NADA MÁS)
+  // -------------------------------------------------------------
+  row1Idx++; // Empty row
+  ws1.getRow(row1Idx).height = 16;
+  row1Idx++;
+
+  ws1.mergeCells(`A${row1Idx}:G${row1Idx}`);
+  const chartTitleCell = ws1.getCell(`A${row1Idx}`);
+  chartTitleCell.value =
+    'GRÁFICA COMPARATIVA: HORAS MANUALES VS. AUTOMATIZADAS Y VOLUMEN DE ACTIVIDADES';
+  chartTitleCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+  chartTitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } }; // Blue 900
+  chartTitleCell.alignment = { vertical: 'middle', indent: 1 };
+  ws1.getRow(row1Idx).height = 24;
+  row1Idx++;
+
+  // Insert captured chart image if present
   if (chartBase64) {
     try {
       const imageId = workbook.addImage({
@@ -319,8 +359,7 @@ export async function exportExecutiveSummaryXlsx(
         extension: 'png',
       });
 
-      // Allocate 24 rows of height 20pt (480pt ≈ 640px) so image is NEVER squished or clipped
-      const startChartRow = currentExcelRow;
+      const startChartRow = row1Idx;
       const chartRowsCount = 24;
       for (let r = 0; r < chartRowsCount; r++) {
         ws1.getRow(startChartRow + r).height = 20;
@@ -332,527 +371,703 @@ export async function exportExecutiveSummaryXlsx(
         editAs: 'oneCell',
       });
 
-      currentExcelRow += chartRowsCount + 1;
+      row1Idx += chartRowsCount + 1;
     } catch (e) {
       console.warn('Error inserting image in Excel:', e);
     }
+  } else {
+    ws1.mergeCells(`A${row1Idx}:G${row1Idx}`);
+    const noImgCell = ws1.getCell(`A${row1Idx}`);
+    noImgCell.value =
+      'Gráfica interactiva disponible en la vista web del tablero (horas manuales, auto y volumen de actividades).';
+    noImgCell.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF64748B' } };
+    noImgCell.alignment = { vertical: 'middle', indent: 1 };
+    ws1.getRow(row1Idx).height = 24;
   }
 
-  // Table with chart data points
-  ws1.mergeCells(`A${currentExcelRow}:G${currentExcelRow}`);
-  const chartDataSubHeader = ws1.getCell(`A${currentExcelRow}`);
-  chartDataSubHeader.value = 'DATOS DE LA GRÁFICA POR GERENCIA (HORAS MANUALES, AUTO Y VOLUMEN)';
-  chartDataSubHeader.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF334155' } };
-  chartDataSubHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-  chartDataSubHeader.alignment = { vertical: 'middle', indent: 1 };
-  ws1.getRow(currentExcelRow).height = 22;
-  currentExcelRow++;
+  // =========================================================================
+  // HOJA 2: ZOOM AL DESGLOSE DE PROCESOS MACRO DE TODAS LAS GERENCIAS
+  // (Mismo orden de la Sección 1, sin nada más)
+  // =========================================================================
+  const ws2 = workbook.addWorksheet('Sec 01 - Procesos Macro', {
+    views: [{ showGridLines: true }],
+  });
 
-  const chartColHeaders = [
-    'Gerencia',
-    'Horas Manuales (h)',
-    'Horas Auto (h)',
-    'Horas Totales (h)',
-    'Volumen Actividades',
-    '% Automatizado',
-    'FTE Total (152h)',
+  ws2.columns = [
+    { width: 38 }, // A: Gerencia
+    { width: 44 }, // B: Proceso Macro
+    { width: 22 }, // C: Actividades Únicas
+    { width: 20 }, // D: Colaboradores
+    { width: 22 }, // E: Horas Auto. (h)
+    { width: 22 }, // F: Horas Manuales (h)
+    { width: 22 }, // G: Horas Totales (h)
   ];
-  const rChartHead = ws1.getRow(currentExcelRow);
-  rChartHead.height = 24;
-  chartColHeaders.forEach((th, idx) => {
-    const cell = rChartHead.getCell(idx + 1);
-    cell.value = th;
-    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E293B' } };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-    cell.alignment = { vertical: 'middle', horizontal: idx === 0 ? 'left' : 'right' };
-    cell.border = { bottom: { style: 'medium', color: { argb: 'FF94A3B8' } } };
-  });
-  currentExcelRow++;
 
-  summaries.forEach((s, idx) => {
-    const r = ws1.getRow(currentExcelRow);
-    r.height = 21;
-    r.getCell(1).value = s.gerencia;
-    r.getCell(1).font = { name: 'Arial', size: 9, bold: true };
-    r.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+  // Header Banner Sheet 2
+  ws2.mergeCells('A1:G1');
+  const title2 = ws2.getCell('A1');
+  title2.value = 'SECCIÓN 01: ZOOM AL DESGLOSE DE PROCESOS MACRO POR GERENCIA';
+  title2.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+  title2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+  title2.alignment = { vertical: 'middle', horizontal: 'center' };
+  ws2.getRow(1).height = 34;
 
-    r.getCell(2).value = s.horasManuales;
-    r.getCell(2).numFmt = '#,##0.0';
-    r.getCell(2).alignment = { vertical: 'middle', horizontal: 'right' };
+  // Subtitle Sheet 2
+  ws2.mergeCells('A2:G2');
+  const sub2 = ws2.getCell('A2');
+  sub2.value = `Desglose de procesos macro de todas las gerencias en el mismo orden de la Sección 01  |  Alcance: ${scopeText}  |  Fecha: ${dateFormatted}`;
+  sub2.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF475569' } };
+  sub2.alignment = { vertical: 'middle', horizontal: 'center' };
+  ws2.getRow(2).height = 20;
 
-    r.getCell(3).value = s.horasAutomatizadas;
-    r.getCell(3).numFmt = '#,##0.0';
-    r.getCell(3).alignment = { vertical: 'middle', horizontal: 'right' };
-
-    r.getCell(4).value = s.horasTotales;
-    r.getCell(4).numFmt = '#,##0.0';
-    r.getCell(4).font = { bold: true };
-    r.getCell(4).alignment = { vertical: 'middle', horizontal: 'right' };
-
-    r.getCell(5).value = s.totalActividades;
-    r.getCell(5).numFmt = '#,##0';
-    r.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
-
-    r.getCell(6).value = `${s.pctAutomatizado}%`;
-    r.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
-
-    r.getCell(7).value = Number((s.horasTotales / 152).toFixed(1));
-    r.getCell(7).numFmt = '#,##0.0';
-    r.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
-
-    for (let c = 1; c <= 7; c++) {
-      const cell = r.getCell(c);
-      cell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' },
-      };
-      cell.border = {
-        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-        right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-      };
-    }
-    currentExcelRow++;
-  });
-
-  // -------------------------------------------------------------
-  // 3. SECCIÓN 01: RESUMEN GERENCIAL CONSOLIDADO
-  // -------------------------------------------------------------
-  currentExcelRow++;
-  ws1.mergeCells(`A${currentExcelRow}:G${currentExcelRow}`);
-  const sec1Header = ws1.getCell(`A${currentExcelRow}`);
-  sec1Header.value = '3. SECCIÓN 01: RESUMEN GERENCIAL - PROCESOS MACRO, ACTIVIDADES Y HORAS';
-  sec1Header.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-  sec1Header.fill = {
-    type: 'pattern',
-    pattern: 'solid',
-    fgColor: { argb: 'FF1E3A8A' },
-  };
-  sec1Header.alignment = { vertical: 'middle', indent: 1 };
-  ws1.getRow(currentExcelRow).height = 26;
-  currentExcelRow++;
-
-  const sec1ColHeaders = [
+  // Table Column Headers Sheet 2
+  const macroHeaders = [
     'Gerencia',
-    'Procesos Macro',
+    'Proceso Macro',
     'Actividades Únicas',
     'Colaboradores',
-    'Horas Totales (h)',
-    'Horas Manuales (h)',
-    'Horas Auto. (h)',
+    'Horas Auto.',
+    'Horas Manuales',
+    'Horas Totales',
   ];
 
-  const rSec1Head = ws1.getRow(currentExcelRow);
-  rSec1Head.height = 24;
-  sec1ColHeaders.forEach((th, idx) => {
-    const cell = rSec1Head.getCell(idx + 1);
+  const rHead2 = ws2.getRow(3);
+  rHead2.height = 26;
+  macroHeaders.forEach((th, idx) => {
+    const cell = rHead2.getCell(idx + 1);
     cell.value = th;
     cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; // Slate 900
-    cell.alignment = { vertical: 'middle', horizontal: idx === 0 ? 'left' : 'right' };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+    cell.alignment = {
+      vertical: 'middle',
+      horizontal: idx < 2 ? 'left' : idx <= 3 ? 'center' : 'right',
+    };
     cell.border = { bottom: { style: 'medium', color: { argb: 'FF334155' } } };
   });
-  currentExcelRow++;
 
-  let totMacros = 0;
-  let totActs = 0;
-  let totColabs = 0;
-  let totHorasTotales = 0;
-  let totHorasManuales = 0;
-  let totHorasAuto = 0;
+  let row2Idx = 4;
+  let totMacroActs = 0;
+  let totMacroColabs = 0;
+  let totMacroHorasAuto = 0;
+  let totMacroHorasManual = 0;
+  let totMacroHorasTotal = 0;
 
-  summaries.forEach((s, idx) => {
-    totMacros += s.totalProcesosMacro;
-    totActs += s.totalActividades;
-    totColabs += s.totalColaboradores;
-    totHorasTotales += s.horasTotales;
-    totHorasManuales += s.horasManuales;
-    totHorasAuto += s.horasAutomatizadas;
+  // Iterate across summaries in the EXACT same order of Section 1
+  scopedSummaries.forEach((s) => {
+    (s.macroProcessesList || []).forEach((m) => {
+      totMacroActs += m.totalActividades;
+      totMacroColabs += m.colaboradoresCount;
+      totMacroHorasAuto += m.horasAutomatizadas;
+      totMacroHorasManual += m.horasManuales;
+      totMacroHorasTotal += m.horasTotales;
 
-    const r = ws1.getRow(currentExcelRow);
-    r.height = 22;
-    r.getCell(1).value = s.gerencia;
-    r.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
-    r.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+      const r = ws2.getRow(row2Idx);
+      r.height = 21;
 
-    r.getCell(2).value = s.totalProcesosMacro;
-    r.getCell(2).numFmt = '#,##0';
-    r.getCell(2).alignment = { vertical: 'middle', horizontal: 'right' };
+      r.getCell(1).value = s.gerencia;
+      r.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+      r.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
 
-    r.getCell(3).value = s.totalActividades;
-    r.getCell(3).numFmt = '#,##0';
-    r.getCell(3).alignment = { vertical: 'middle', horizontal: 'right' };
+      r.getCell(2).value = m.nombre;
+      r.getCell(2).font = { name: 'Arial', size: 9, color: { argb: 'FF1E293B' } };
+      r.getCell(2).alignment = { vertical: 'middle', horizontal: 'left' };
 
-    r.getCell(4).value = s.totalColaboradores;
-    r.getCell(4).numFmt = '#,##0';
-    r.getCell(4).alignment = { vertical: 'middle', horizontal: 'right' };
+      r.getCell(3).value = m.totalActividades;
+      r.getCell(3).numFmt = '#,##0';
+      r.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
 
-    r.getCell(5).value = s.horasTotales;
-    r.getCell(5).numFmt = '#,##0.0';
-    r.getCell(5).font = { bold: true };
-    r.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
+      r.getCell(4).value = m.colaboradoresCount;
+      r.getCell(4).numFmt = '#,##0';
+      r.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
 
-    r.getCell(6).value = s.horasManuales;
-    r.getCell(6).numFmt = '#,##0.0';
-    r.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
+      r.getCell(5).value = m.horasAutomatizadas;
+      r.getCell(5).numFmt = '#,##0.0';
+      r.getCell(5).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E3A8A' } };
+      r.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
 
-    r.getCell(7).value = s.horasAutomatizadas;
-    r.getCell(7).numFmt = '#,##0.0';
-    r.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
+      r.getCell(6).value = m.horasManuales;
+      r.getCell(6).numFmt = '#,##0.0';
+      r.getCell(6).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
+      r.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
 
-    for (let c = 1; c <= 7; c++) {
-      const cell = r.getCell(c);
-      cell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' },
-      };
-      cell.border = {
-        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-        right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-      };
-    }
-    currentExcelRow++;
+      r.getCell(7).value = m.horasTotales;
+      r.getCell(7).numFmt = '#,##0.0';
+      r.getCell(7).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+      r.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
+
+      for (let c = 1; c <= 7; c++) {
+        const cell = r.getCell(c);
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: row2Idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' },
+        };
+        cell.border = {
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        };
+      }
+
+      row2Idx++;
+    });
   });
 
-  // Total Row for Section 1
-  const rTotal = ws1.getRow(currentExcelRow);
-  rTotal.height = 25;
-  rTotal.getCell(1).value = 'TOTAL CONSOLIDADO (SECCIÓN 01)';
-  rTotal.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-  rTotal.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+  // Total Consolidado Row Sheet 2
+  const rTotal2 = ws2.getRow(row2Idx);
+  rTotal2.height = 25;
+  rTotal2.getCell(1).value = 'TOTAL CONSOLIDADO (PROCESOS MACRO)';
+  rTotal2.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal2.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
 
-  rTotal.getCell(2).value = totMacros;
-  rTotal.getCell(2).numFmt = '#,##0';
-  rTotal.getCell(2).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  rTotal.getCell(2).alignment = { vertical: 'middle', horizontal: 'right' };
+  rTotal2.getCell(2).value = `${scopedSummaries.reduce((acc, s) => acc + (s.macroProcessesList?.length || 0), 0)} procesos`;
+  rTotal2.getCell(2).font = { bold: true, color: { argb: 'FFFFFFFF' } };
 
-  rTotal.getCell(3).value = totActs;
-  rTotal.getCell(3).numFmt = '#,##0';
-  rTotal.getCell(3).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  rTotal.getCell(3).alignment = { vertical: 'middle', horizontal: 'right' };
+  rTotal2.getCell(3).value = totMacroActs;
+  rTotal2.getCell(3).numFmt = '#,##0';
+  rTotal2.getCell(3).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal2.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
 
-  rTotal.getCell(4).value = totColabs;
-  rTotal.getCell(4).numFmt = '#,##0';
-  rTotal.getCell(4).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  rTotal.getCell(4).alignment = { vertical: 'middle', horizontal: 'right' };
+  rTotal2.getCell(4).value = totMacroColabs;
+  rTotal2.getCell(4).numFmt = '#,##0';
+  rTotal2.getCell(4).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal2.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
 
-  rTotal.getCell(5).value = Number(totHorasTotales.toFixed(1));
-  rTotal.getCell(5).numFmt = '#,##0.0';
-  rTotal.getCell(5).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  rTotal.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
+  rTotal2.getCell(5).value = Number(totMacroHorasAuto.toFixed(1));
+  rTotal2.getCell(5).numFmt = '#,##0.0';
+  rTotal2.getCell(5).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal2.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
 
-  rTotal.getCell(6).value = Number(totHorasManuales.toFixed(1));
-  rTotal.getCell(6).numFmt = '#,##0.0';
-  rTotal.getCell(6).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  rTotal.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
+  rTotal2.getCell(6).value = Number(totMacroHorasManual.toFixed(1));
+  rTotal2.getCell(6).numFmt = '#,##0.0';
+  rTotal2.getCell(6).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal2.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
 
-  rTotal.getCell(7).value = Number(totHorasAuto.toFixed(1));
-  rTotal.getCell(7).numFmt = '#,##0.0';
-  rTotal.getCell(7).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  rTotal.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
+  rTotal2.getCell(7).value = Number(totMacroHorasTotal.toFixed(1));
+  rTotal2.getCell(7).numFmt = '#,##0.0';
+  rTotal2.getCell(7).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal2.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
 
   for (let c = 1; c <= 7; c++) {
-    const cell = rTotal.getCell(c);
+    const cell = rTotal2.getCell(c);
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF1E293B' }, // Slate 800
+      fgColor: { argb: 'FF1E293B' },
     };
     cell.border = {
       top: { style: 'medium', color: { argb: 'FF475569' } },
       bottom: { style: 'medium', color: { argb: 'FF475569' } },
     };
   }
-  currentExcelRow++;
 
-  // -------------------------------------------------------------
-  // 4. SECCIÓN 02: RESUMEN DE CARGA LABORAL POR COLABORADOR
-  // -------------------------------------------------------------
-  currentExcelRow++;
-  ws1.mergeCells(`A${currentExcelRow}:G${currentExcelRow}`);
-  const sec2SummaryHeader = ws1.getCell(`A${currentExcelRow}`);
-  sec2SummaryHeader.value =
-    '4. SECCIÓN 02: RESUMEN DE CARGA LABORAL POR COLABORADOR (RESPONSABLE FUNCIONAL)';
-  sec2SummaryHeader.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-  sec2SummaryHeader.fill = {
-    type: 'pattern',
-    pattern: 'solid',
-    fgColor: { argb: 'FF1E3A8A' },
-  };
-  sec2SummaryHeader.alignment = { vertical: 'middle', indent: 1 };
-  ws1.getRow(currentExcelRow).height = 26;
-  currentExcelRow++;
-
-  const sec2SummaryCards = [
-    [
-      'Colaboradores Asignados',
-      `${formatThousands(totalColabs)} colaboradores`,
-      'Responsables funcionales únicos identificados en el inventario',
-    ],
-    [
-      'Carga Promedio del Equipo (Horas Manuales)',
-      `${formatThousands(avgHorasManualesColab, 1)} h/mes`,
-      `${formatThousands((avgHorasManualesColab / 152) * 100, 0)}% respecto a la jornada mensual normal (152h)`,
-    ],
-    [
-      'Total Horas Manuales del Equipo',
-      `${formatHours(totalHorasManualesColab)} h/mes`,
-      `Equivalente a ${formatThousands(totalHorasManualesColab / 152, 1)} FTE operativos manuales`,
-    ],
-    [
-      'Volumen de Tareas Manuales vs. Automatizadas',
-      `${formatThousands(totalTareasMan)} manuales · ${formatThousands(totalTareasAuto)} automatizadas`,
-      `${formatThousands(totalTareasMan + totalTareasAuto)} ejecuciones totales analizadas`,
-    ],
-  ];
-
-  sec2SummaryCards.forEach((card, cIdx) => {
-    const r = ws1.getRow(currentExcelRow);
-    r.height = 24;
-
-    ws1.mergeCells(`A${currentExcelRow}:C${currentExcelRow}`);
-    const cLabel = r.getCell(1);
-    cLabel.value = card[0];
-    cLabel.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
-    cLabel.alignment = { vertical: 'middle', horizontal: 'left' };
-
-    ws1.mergeCells(`D${currentExcelRow}:E${currentExcelRow}`);
-    const cVal = r.getCell(4);
-    cVal.value = card[1];
-    cVal.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E3A8A' } };
-    cVal.alignment = { vertical: 'middle', horizontal: 'center' };
-
-    ws1.mergeCells(`F${currentExcelRow}:G${currentExcelRow}`);
-    const cNote = r.getCell(6);
-    cNote.value = card[2];
-    cNote.font = { name: 'Arial', size: 8.5, italic: true, color: { argb: 'FF475569' } };
-    cNote.alignment = { vertical: 'middle', horizontal: 'left' };
-
-    for (let c = 1; c <= 7; c++) {
-      const cell = r.getCell(c);
-      cell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: cIdx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' },
-      };
-      cell.border = {
-        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-      };
-    }
-    currentExcelRow++;
-  });
-
-  // Note informing user about the dedicated Section 2 Tab
-  currentExcelRow++;
-  ws1.mergeCells(`A${currentExcelRow}:G${currentExcelRow}`);
-  const sec2NoteCell = ws1.getCell(`A${currentExcelRow}`);
-  sec2NoteCell.value =
-    '>> Consulta la pestaña "Sec 02 - Carga Colaboradores" para el desglose completo por persona, horas manuales y % de jornada. Las secciones 03 y 04 están excluidas conforme a tu solicitud.';
-  sec2NoteCell.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF1E3A8A' } };
-  sec2NoteCell.alignment = { vertical: 'middle', indent: 1 };
-  ws1.getRow(currentExcelRow).height = 26;
-
-  // -------------------------------------------------------------
-  // HOJA 2: SECCIÓN 02 - CARGA LABORAL POR COLABORADOR (DETALLE)
-  // -------------------------------------------------------------
-  const ws2 = workbook.addWorksheet('Sec 02 - Carga Colaboradores', {
+  // =========================================================================
+  // HOJA 3: SECCIÓN 01 - DESGLOSE DE ACTIVIDADES DE CADA PROCESO MACRO
+  // (La hoja adicional de la Sección 01 solicitada por el usuario)
+  // =========================================================================
+  const ws3 = workbook.addWorksheet('Sec 01 - Actividades Macro', {
     views: [{ showGridLines: true }],
   });
 
-  // Broad columns so names, job titles, and departments are never cut off
-  ws2.columns = [
-    { width: 38 }, // A: Responsable Funcional
-    { width: 42 }, // B: Gerencia
-    { width: 34 }, // C: Puesto
-    { width: 28 }, // D: Carga Actual (Horas Manuales)
-    { width: 22 }, // E: % de Jornada (152h)
-    { width: 20 }, // F: Tareas Manuales
-    { width: 20 }, // G: Tareas Auto.
-    { width: 24 }, // H: Horas Manuales (h)
-    { width: 24 }, // I: Horas Auto. (h)
-    { width: 26 }, // J: Potencial Auto (h)
-    { width: 22 }, // K: Actividades Únicas
+  ws3.columns = [
+    { width: 36 }, // A: Gerencia
+    { width: 38 }, // B: Proceso Macro
+    { width: 48 }, // C: Actividad / Proceso
+    { width: 30 }, // D: Área / Sub Área
+    { width: 36 }, // E: Responsable Funcional
+    { width: 26 }, // F: Puesto
+    { width: 18 }, // G: Frecuencia
+    { width: 15 }, // H: ¿Auto.?
+    { width: 22 }, // I: Herramienta
+    { width: 20 }, // J: Horas Auto. (h)
+    { width: 20 }, // K: Horas Manuales (h)
+    { width: 20 }, // L: Horas Totales (h)
+    { width: 22 }, // M: % Carga Colab. (Manual)
   ];
 
-  // Header Banner Sheet 2
-  ws2.mergeCells('A1:K1');
-  const ws2Title = ws2.getCell('A1');
-  ws2Title.value =
-    'SECCIÓN 02: CARGA LABORAL Y TAREAS POR RESPONSABLE FUNCIONAL (HORAS MANUALES)';
-  ws2Title.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
-  ws2Title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
-  ws2Title.alignment = { vertical: 'middle', horizontal: 'center' };
-  ws2.getRow(1).height = 34;
+  // Header Banner Sheet 3
+  ws3.mergeCells('A1:M1');
+  const title3 = ws3.getCell('A1');
+  title3.value = 'SECCIÓN 01: DESGLOSE DE ACTIVIDADES POR PROCESO MACRO Y GERENCIA';
+  title3.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+  title3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+  title3.alignment = { vertical: 'middle', horizontal: 'center' };
+  ws3.getRow(1).height = 34;
 
-  // Subtitle Sheet 2
-  ws2.mergeCells('A2:K2');
-  const ws2Sub = ws2.getCell('A2');
-  ws2Sub.value = `Carga mensual basada en horas manuales como tiempo operativo humano · Jornada laboral base: 152 h/mes · Total colaboradores: ${totalColabs}`;
-  ws2Sub.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF334155' } };
-  ws2Sub.alignment = { vertical: 'middle', horizontal: 'center' };
-  ws2.getRow(2).height = 22;
+  // Subtitle Sheet 3
+  ws3.mergeCells('A2:M2');
+  const sub3 = ws3.getCell('A2');
+  sub3.value = `Desglose detallado de actividades por cada proceso macro de cada gerencia en el mismo orden de la Sección 01  |  Alcance: ${scopeText}  |  Fecha: ${dateFormatted}`;
+  sub3.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF475569' } };
+  sub3.alignment = { vertical: 'middle', horizontal: 'center' };
+  ws3.getRow(2).height = 20;
 
-  // Table Columns Sheet 2
-  const colabHeaders = [
-    'Responsable Funcional',
+  // Table Column Headers Sheet 3
+  const sec1ActHeaders = [
     'Gerencia',
+    'Proceso Macro',
+    'Actividad / Proceso',
+    'Área / Sub Área',
+    'Responsable Funcional',
     'Puesto',
-    'Carga Actual (Horas Manuales)',
-    '% Jornada (152h)',
-    'Tareas Manuales',
-    'Tareas Auto.',
-    'Horas Manuales (h)',
-    'Horas Auto. (h)',
-    'Potencial Auto (h)',
-    'Actividades Únicas',
+    'Frecuencia',
+    '¿Auto.?',
+    'Herramienta',
+    'Horas Auto.',
+    'Horas Manuales',
+    'Horas Totales',
+    '% Carga Colab.',
   ];
 
-  const rColabHead = ws2.getRow(3);
-  rColabHead.height = 26;
-  colabHeaders.forEach((th, idx) => {
-    const cell = rColabHead.getCell(idx + 1);
+  const rHead3 = ws3.getRow(3);
+  rHead3.height = 26;
+  sec1ActHeaders.forEach((th, idx) => {
+    const cell = rHead3.getCell(idx + 1);
     cell.value = th;
     cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
-    cell.alignment = { vertical: 'middle', horizontal: idx < 3 ? 'left' : 'right' };
+    cell.alignment = {
+      vertical: 'middle',
+      horizontal: idx < 6 ? 'left' : idx <= 7 ? 'center' : idx === 8 ? 'left' : 'right',
+    };
     cell.border = { bottom: { style: 'medium', color: { argb: 'FF334155' } } };
   });
 
-  let colabRowIdx = 4;
-  let sumManHours = 0;
-  let sumAutoHours = 0;
-  let sumPotHours = 0;
-  let sumManTasks = 0;
-  let sumAutoTasks = 0;
+  let row3Idx = 4;
+  let totSec1ActCount = 0;
+  let totSec1ActAutoHours = 0;
+  let totSec1ActManHours = 0;
+  let totSec1ActTotHours = 0;
 
-  scopedColabs.forEach((c) => {
-    sumManHours += c.horasManuales;
-    sumAutoHours += c.horasAutomatizadas;
-    sumPotHours += c.horasPotencialAutomatizable;
-    sumManTasks += c.tareasManuales;
-    sumAutoTasks += c.tareasAutomatizadas;
+  // Loop through scopedSummaries (exact Section 1 order: CXP, CE/GDP, etc.)
+  scopedSummaries.forEach((s) => {
+    (s.macroProcessesList || []).forEach((m) => {
+      (m.actividades || []).forEach((act) => {
+        totSec1ActCount++;
+        const actMan = Number(
+          act.horasManualesTotal != null ? act.horasManualesTotal : (act.horasManuales || 0)
+        );
+        const actAuto = Number(act.horasMensualesAutomatizadas || 0);
+        const actTot = Number(
+          act.horasMensualesTotal != null ? act.horasMensualesTotal : (act.horasMensualesActividad || 0)
+        );
 
-    const r = ws2.getRow(colabRowIdx);
-    r.height = 21;
+        totSec1ActManHours += actMan;
+        totSec1ActAutoHours += actAuto;
+        totSec1ActTotHours += actTot;
 
-    r.getCell(1).value = c.colaborador;
-    r.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
-    r.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+        const colabTotalMan = colabManualHoursMap.get((act.responsableFuncional || '').trim()) || 0;
+        const pctColabMan =
+          colabTotalMan > 0 ? Number(((actMan / colabTotalMan) * 100).toFixed(1)) : 0;
 
-    r.getCell(2).value = c.gerencia;
-    r.getCell(2).font = { name: 'Arial', size: 9 };
-    r.getCell(2).alignment = { vertical: 'middle', horizontal: 'left' };
+        const r = ws3.getRow(row3Idx);
+        r.height = 21;
 
-    r.getCell(3).value = c.puesto;
-    r.getCell(3).font = { name: 'Arial', size: 9 };
-    r.getCell(3).alignment = { vertical: 'middle', horizontal: 'left' };
+        // Gerencia
+        r.getCell(1).value = s.gerencia;
+        r.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+        r.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
 
-    // Carga Actual (Horas Manuales)
-    r.getCell(4).value = c.horasManuales;
-    r.getCell(4).numFmt = '#,##0.0';
-    r.getCell(4).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } }; // Amber 700
-    r.getCell(4).alignment = { vertical: 'middle', horizontal: 'right' };
+        // Proceso Macro
+        r.getCell(2).value = m.nombre;
+        r.getCell(2).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E3A8A' } };
+        r.getCell(2).alignment = { vertical: 'middle', horizontal: 'left' };
 
-    // % Jornada (152h)
-    r.getCell(5).value = `${c.porcentajeJornada}%`;
-    r.getCell(5).font = { name: 'Arial', size: 9, bold: true };
-    r.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
+        // Actividad / Proceso
+        r.getCell(3).value = act.actividadProceso;
+        r.getCell(3).font = { name: 'Arial', size: 9, color: { argb: 'FF0F172A' } };
+        r.getCell(3).alignment = { vertical: 'middle', horizontal: 'left' };
 
-    // Tareas Manuales
-    r.getCell(6).value = c.tareasManuales;
-    r.getCell(6).numFmt = '#,##0';
-    r.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
+        // Área / Sub Área
+        r.getCell(4).value = act.areaSubArea || s.gerencia;
+        r.getCell(4).font = { name: 'Arial', size: 9, color: { argb: 'FF475569' } };
+        r.getCell(4).alignment = { vertical: 'middle', horizontal: 'left' };
 
-    // Tareas Auto
-    r.getCell(7).value = c.tareasAutomatizadas;
-    r.getCell(7).numFmt = '#,##0';
-    r.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
+        // Responsable Funcional
+        r.getCell(5).value = act.responsableFuncional;
+        r.getCell(5).font = { name: 'Arial', size: 9, color: { argb: 'FF1E293B' } };
+        r.getCell(5).alignment = { vertical: 'middle', horizontal: 'left' };
 
-    // Horas Manuales
-    r.getCell(8).value = c.horasManuales;
-    r.getCell(8).numFmt = '#,##0.0';
-    r.getCell(8).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
-    r.getCell(8).alignment = { vertical: 'middle', horizontal: 'right' };
+        // Puesto
+        r.getCell(6).value = act.puesto || 'Especialista';
+        r.getCell(6).font = { name: 'Arial', size: 9, color: { argb: 'FF475569' } };
+        r.getCell(6).alignment = { vertical: 'middle', horizontal: 'left' };
 
-    // Horas Auto
-    r.getCell(9).value = c.horasAutomatizadas;
-    r.getCell(9).numFmt = '#,##0.0';
-    r.getCell(9).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E3A8A' } };
-    r.getCell(9).alignment = { vertical: 'middle', horizontal: 'right' };
+        // Frecuencia
+        r.getCell(7).value = act.frecuencia || 'Mensual';
+        r.getCell(7).alignment = { vertical: 'middle', horizontal: 'center' };
 
-    // Potencial Auto
-    r.getCell(10).value = c.horasPotencialAutomatizable;
-    r.getCell(10).numFmt = '#,##0.0';
-    r.getCell(10).alignment = { vertical: 'middle', horizontal: 'right' };
+        // ¿Auto.?
+        r.getCell(8).value = act.esAutomatizable || 'No';
+        r.getCell(8).alignment = { vertical: 'middle', horizontal: 'center' };
 
-    // Actividades Únicas
-    r.getCell(11).value = c.totalActividades;
-    r.getCell(11).numFmt = '#,##0';
-    r.getCell(11).alignment = { vertical: 'middle', horizontal: 'right' };
+        // Herramienta
+        r.getCell(9).value = act.herramienta || 'N/A';
+        r.getCell(9).alignment = { vertical: 'middle', horizontal: 'left' };
 
-    for (let col = 1; col <= 11; col++) {
-      const cell = r.getCell(col);
-      cell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: colabRowIdx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' },
-      };
-      cell.border = {
-        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-        right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-      };
-    }
+        // Horas Auto.
+        r.getCell(10).value = actAuto;
+        r.getCell(10).numFmt = '#,##0.0';
+        r.getCell(10).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E3A8A' } };
+        r.getCell(10).alignment = { vertical: 'middle', horizontal: 'right' };
 
-    colabRowIdx++;
+        // Horas Manuales
+        r.getCell(11).value = actMan;
+        r.getCell(11).numFmt = '#,##0.0';
+        r.getCell(11).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
+        r.getCell(11).alignment = { vertical: 'middle', horizontal: 'right' };
+
+        // Horas Totales
+        r.getCell(12).value = actTot;
+        r.getCell(12).numFmt = '#,##0.0';
+        r.getCell(12).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+        r.getCell(12).alignment = { vertical: 'middle', horizontal: 'right' };
+
+        // % Carga Colaborador
+        r.getCell(13).value = `${pctColabMan}%`;
+        r.getCell(13).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
+        r.getCell(13).alignment = { vertical: 'middle', horizontal: 'right' };
+
+        for (let col = 1; col <= 13; col++) {
+          const cell = r.getCell(col);
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: row3Idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' },
+          };
+          cell.border = {
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          };
+        }
+
+        row3Idx++;
+      });
+    });
   });
 
-  // Total Row Sheet 2
-  const rColabTotal = ws2.getRow(colabRowIdx);
-  rColabTotal.height = 25;
-  rColabTotal.getCell(1).value = 'TOTAL CONSOLIDADO (COLABORADORES)';
-  rColabTotal.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-  rColabTotal.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+  // Total Consolidado Row Sheet 3
+  const rTotal3 = ws3.getRow(row3Idx);
+  rTotal3.height = 25;
+  rTotal3.getCell(1).value = 'TOTAL CONSOLIDADO (ACTIVIDADES SECCIÓN 01)';
+  rTotal3.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal3.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
 
-  rColabTotal.getCell(2).value = `${totalColabs} personas`;
-  rColabTotal.getCell(2).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal3.getCell(3).value = `${totSec1ActCount} actividades`;
+  rTotal3.getCell(3).font = { bold: true, color: { argb: 'FFFFFFFF' } };
 
-  rColabTotal.getCell(4).value = Number(sumManHours.toFixed(1));
-  rColabTotal.getCell(4).numFmt = '#,##0.0';
-  rColabTotal.getCell(4).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  rColabTotal.getCell(4).alignment = { vertical: 'middle', horizontal: 'right' };
+  rTotal3.getCell(10).value = Number(totSec1ActAutoHours.toFixed(1));
+  rTotal3.getCell(10).numFmt = '#,##0.0';
+  rTotal3.getCell(10).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal3.getCell(10).alignment = { vertical: 'middle', horizontal: 'right' };
 
-  rColabTotal.getCell(5).value = `${formatThousands((sumManHours / Math.max(1, totalColabs * 152)) * 100, 1)}% prom`;
-  rColabTotal.getCell(5).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  rColabTotal.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
+  rTotal3.getCell(11).value = Number(totSec1ActManHours.toFixed(1));
+  rTotal3.getCell(11).numFmt = '#,##0.0';
+  rTotal3.getCell(11).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal3.getCell(11).alignment = { vertical: 'middle', horizontal: 'right' };
 
-  rColabTotal.getCell(6).value = sumManTasks;
-  rColabTotal.getCell(6).numFmt = '#,##0';
-  rColabTotal.getCell(6).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  rColabTotal.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
+  rTotal3.getCell(12).value = Number(totSec1ActTotHours.toFixed(1));
+  rTotal3.getCell(12).numFmt = '#,##0.0';
+  rTotal3.getCell(12).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal3.getCell(12).alignment = { vertical: 'middle', horizontal: 'right' };
 
-  rColabTotal.getCell(7).value = sumAutoTasks;
-  rColabTotal.getCell(7).numFmt = '#,##0';
-  rColabTotal.getCell(7).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  rColabTotal.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
+  for (let c = 1; c <= 13; c++) {
+    const cell = rTotal3.getCell(c);
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF1E293B' },
+    };
+    cell.border = {
+      top: { style: 'medium', color: { argb: 'FF475569' } },
+      bottom: { style: 'medium', color: { argb: 'FF475569' } },
+    };
+  }
 
-  rColabTotal.getCell(8).value = Number(sumManHours.toFixed(1));
-  rColabTotal.getCell(8).numFmt = '#,##0.0';
-  rColabTotal.getCell(8).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  rColabTotal.getCell(8).alignment = { vertical: 'middle', horizontal: 'right' };
+  // =========================================================================
+  // HOJA 4: SECCIÓN 02 - BASE DE DATOS POR COLABORADOR CON COLUMNA ACTIVIDAD/PROCESO
+  // (La hoja sección 03 la nueva, con la columna actividad/proceso para llegar al detalle por colaborador)
+  // =========================================================================
+  const ws4 = workbook.addWorksheet('Sec 02 - Base de Datos', {
+    views: [{ showGridLines: true }],
+  });
 
-  rColabTotal.getCell(9).value = Number(sumAutoHours.toFixed(1));
-  rColabTotal.getCell(9).numFmt = '#,##0.0';
-  rColabTotal.getCell(9).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  rColabTotal.getCell(9).alignment = { vertical: 'middle', horizontal: 'right' };
+  ws4.columns = [
+    { width: 36 }, // A: Gerencia
+    { width: 38 }, // B: Responsable Funcional
+    { width: 28 }, // C: Puesto
+    { width: 48 }, // D: Actividad / Proceso (La columna agregada para el detalle por colaborador)
+    { width: 38 }, // E: Proceso Macro
+    { width: 30 }, // F: Área / Sub Área
+    { width: 18 }, // G: Frecuencia
+    { width: 15 }, // H: ¿Auto.?
+    { width: 22 }, // I: Herramienta
+    { width: 20 }, // J: Horas Manuales (h)
+    { width: 20 }, // K: Horas Auto. (h)
+    { width: 20 }, // L: Horas Totales (h)
+    { width: 22 }, // M: % Carga Colab. (Manual)
+    { width: 24 }, // N: Carga Total Colab. (h)
+    { width: 22 }, // O: % Jornada Colab. (152h)
+  ];
 
-  rColabTotal.getCell(10).value = Number(sumPotHours.toFixed(1));
-  rColabTotal.getCell(10).numFmt = '#,##0.0';
-  rColabTotal.getCell(10).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  rColabTotal.getCell(10).alignment = { vertical: 'middle', horizontal: 'right' };
+  // Header Banner Sheet 4
+  ws4.mergeCells('A1:O1');
+  const title4 = ws4.getCell('A1');
+  title4.value = 'SECCIÓN 02: BASE DE DATOS DE CARGA LABORAL Y ACTIVIDADES POR COLABORADOR';
+  title4.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+  title4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+  title4.alignment = { vertical: 'middle', horizontal: 'center' };
+  ws4.getRow(1).height = 34;
 
-  for (let c = 1; c <= 11; c++) {
-    const cell = rColabTotal.getCell(c);
+  // Subtitle Sheet 4
+  ws4.mergeCells('A2:O2');
+  const sub4 = ws4.getCell('A2');
+  sub4.value = `Detalle por colaborador con columna Actividad/Proceso en la misma secuencia de gerencias de la Sección 01 (CXP, CE/GDP, etc.)  |  Jornada base: 152 h/mes  |  Fecha: ${dateFormatted}`;
+  sub4.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF475569' } };
+  sub4.alignment = { vertical: 'middle', horizontal: 'center' };
+  ws4.getRow(2).height = 20;
+
+  // Table Column Headers Sheet 4
+  const sec2DetailHeaders = [
+    'Gerencia',
+    'Responsable Funcional',
+    'Puesto',
+    'Actividad / Proceso',
+    'Proceso Macro',
+    'Área / Sub Área',
+    'Frecuencia',
+    '¿Auto.?',
+    'Herramienta',
+    'Horas Manuales',
+    'Horas Auto.',
+    'Horas Totales',
+    '% Carga Colab.',
+    'Carga Total Colab.',
+    '% Jornada (152h)',
+  ];
+
+  const rHead4 = ws4.getRow(3);
+  rHead4.height = 26;
+  sec2DetailHeaders.forEach((th, idx) => {
+    const cell = rHead4.getCell(idx + 1);
+    cell.value = th;
+    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+    cell.alignment = {
+      vertical: 'middle',
+      horizontal: idx < 6 ? 'left' : idx <= 7 ? 'center' : idx === 8 ? 'left' : 'right',
+    };
+    cell.border = { bottom: { style: 'medium', color: { argb: 'FF334155' } } };
+  });
+
+  // Organize collaborators strictly by the order of Gerencias in Section 1 (scopedSummaries: CXP, CE/GDP, etc.)
+  const orderedColaboradores: ColaboradorSummaryItem[] = [];
+  const processedKeys = new Set<string>();
+
+  scopedSummaries.forEach((s) => {
+    // Filter collaborators in this specific gerencia
+    const gerenciaColabs = scopedColaboradores.filter(
+      (c) => c.gerencia.trim().toUpperCase() === s.gerencia.trim().toUpperCase()
+    );
+    // Sort collaborators within this gerencia by manual hours descending
+    gerenciaColabs.sort((a, b) => b.horasManuales - a.horasManuales);
+
+    gerenciaColabs.forEach((c) => {
+      const key = `${c.gerencia}:::${c.colaborador}`;
+      if (!processedKeys.has(key)) {
+        processedKeys.add(key);
+        orderedColaboradores.push(c);
+      }
+    });
+  });
+
+  // Append any remaining collaborators not matched to a known gerencia
+  scopedColaboradores.forEach((c) => {
+    const key = `${c.gerencia}:::${c.colaborador}`;
+    if (!processedKeys.has(key)) {
+      processedKeys.add(key);
+      orderedColaboradores.push(c);
+    }
+  });
+
+  let row4Idx = 4;
+  let totSec2Acts = 0;
+  let totSec2ManHours = 0;
+  let totSec2AutoHours = 0;
+  let totSec2TotalHours = 0;
+
+  orderedColaboradores.forEach((c) => {
+    const activities = c.actividades && c.actividades.length > 0
+      ? c.actividades
+      : [
+          {
+            actividadProceso: 'Actividad General',
+            procesoMacro: 'Operaciones',
+            areaSubArea: c.gerencia,
+            frecuencia: 'Mensual',
+            esAutomatizable: 'No',
+            herramienta: 'N/A',
+            horasManualesTotal: c.horasManuales,
+            horasMensualesAutomatizadas: c.horasAutomatizadas,
+            horasMensualesTotal: c.horasTotales,
+          } as any,
+        ];
+
+    activities.forEach((act) => {
+      totSec2Acts++;
+      const actMan = Number(
+        act.horasManualesTotal != null ? act.horasManualesTotal : (act.horasManuales || 0)
+      );
+      const actAuto = Number(act.horasMensualesAutomatizadas || 0);
+      const actTot = Number(
+        act.horasMensualesTotal != null ? act.horasMensualesTotal : (act.horasMensualesActividad || 0)
+      );
+
+      totSec2ManHours += actMan;
+      totSec2AutoHours += actAuto;
+      totSec2TotalHours += actTot;
+
+      const pctActOfColab =
+        c.horasManuales > 0 ? Number(((actMan / c.horasManuales) * 100).toFixed(1)) : 0;
+
+      const r = ws4.getRow(row4Idx);
+      r.height = 21;
+
+      // Gerencia
+      r.getCell(1).value = c.gerencia;
+      r.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+      r.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      // Responsable Funcional
+      r.getCell(2).value = c.colaborador;
+      r.getCell(2).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E293B' } };
+      r.getCell(2).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      // Puesto
+      r.getCell(3).value = c.puesto;
+      r.getCell(3).font = { name: 'Arial', size: 9, color: { argb: 'FF475569' } };
+      r.getCell(3).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      // Actividad / Proceso (La columna agregada para llegar al detalle por colaborador)
+      r.getCell(4).value = act.actividadProceso;
+      r.getCell(4).font = { name: 'Arial', size: 9, color: { argb: 'FF0F172A' } };
+      r.getCell(4).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      // Proceso Macro
+      r.getCell(5).value = act.procesoMacro || 'General';
+      r.getCell(5).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E3A8A' } };
+      r.getCell(5).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      // Área / Sub Área
+      r.getCell(6).value = act.areaSubArea || c.gerencia;
+      r.getCell(6).font = { name: 'Arial', size: 9, color: { argb: 'FF475569' } };
+      r.getCell(6).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      // Frecuencia
+      r.getCell(7).value = act.frecuencia || 'Mensual';
+      r.getCell(7).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      // ¿Auto.?
+      r.getCell(8).value = act.esAutomatizable || 'No';
+      r.getCell(8).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      // Herramienta
+      r.getCell(9).value = act.herramienta || 'N/A';
+      r.getCell(9).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      // Horas Manuales (h)
+      r.getCell(10).value = actMan;
+      r.getCell(10).numFmt = '#,##0.0';
+      r.getCell(10).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
+      r.getCell(10).alignment = { vertical: 'middle', horizontal: 'right' };
+
+      // Horas Auto. (h)
+      r.getCell(11).value = actAuto;
+      r.getCell(11).numFmt = '#,##0.0';
+      r.getCell(11).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E3A8A' } };
+      r.getCell(11).alignment = { vertical: 'middle', horizontal: 'right' };
+
+      // Horas Totales (h)
+      r.getCell(12).value = actTot;
+      r.getCell(12).numFmt = '#,##0.0';
+      r.getCell(12).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+      r.getCell(12).alignment = { vertical: 'middle', horizontal: 'right' };
+
+      // % Carga Colaborador (Manual)
+      r.getCell(13).value = `${pctActOfColab}%`;
+      r.getCell(13).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
+      r.getCell(13).alignment = { vertical: 'middle', horizontal: 'right' };
+
+      // Carga Total Colaborador (h)
+      r.getCell(14).value = c.horasManuales;
+      r.getCell(14).numFmt = '#,##0.0';
+      r.getCell(14).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
+      r.getCell(14).alignment = { vertical: 'middle', horizontal: 'right' };
+
+      // % Jornada Colaborador (152h)
+      r.getCell(15).value = `${c.porcentajeJornada}%`;
+      r.getCell(15).font = { name: 'Arial', size: 9, bold: true };
+      r.getCell(15).alignment = { vertical: 'middle', horizontal: 'right' };
+
+      for (let col = 1; col <= 15; col++) {
+        const cell = r.getCell(col);
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: row4Idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' },
+        };
+        cell.border = {
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        };
+      }
+
+      row4Idx++;
+    });
+  });
+
+  // Total Consolidado Row Sheet 4
+  const rTotal4 = ws4.getRow(row4Idx);
+  rTotal4.height = 25;
+  rTotal4.getCell(1).value = 'TOTAL CONSOLIDADO (DETALLE COLABORADORES)';
+  rTotal4.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal4.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+
+  rTotal4.getCell(2).value = `${orderedColaboradores.length} colaboradores`;
+  rTotal4.getCell(2).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+
+  rTotal4.getCell(4).value = `${totSec2Acts} actividades`;
+  rTotal4.getCell(4).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+
+  rTotal4.getCell(10).value = Number(totSec2ManHours.toFixed(1));
+  rTotal4.getCell(10).numFmt = '#,##0.0';
+  rTotal4.getCell(10).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal4.getCell(10).alignment = { vertical: 'middle', horizontal: 'right' };
+
+  rTotal4.getCell(11).value = Number(totSec2AutoHours.toFixed(1));
+  rTotal4.getCell(11).numFmt = '#,##0.0';
+  rTotal4.getCell(11).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal4.getCell(11).alignment = { vertical: 'middle', horizontal: 'right' };
+
+  rTotal4.getCell(12).value = Number(totSec2TotalHours.toFixed(1));
+  rTotal4.getCell(12).numFmt = '#,##0.0';
+  rTotal4.getCell(12).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal4.getCell(12).alignment = { vertical: 'middle', horizontal: 'right' };
+
+  const totalColabManualSum = orderedColaboradores.reduce((acc, c) => acc + c.horasManuales, 0);
+  rTotal4.getCell(14).value = Number(totalColabManualSum.toFixed(1));
+  rTotal4.getCell(14).numFmt = '#,##0.0';
+  rTotal4.getCell(14).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal4.getCell(14).alignment = { vertical: 'middle', horizontal: 'right' };
+
+  rTotal4.getCell(15).value = `${formatThousands(
+    (totalColabManualSum / Math.max(1, orderedColaboradores.length * 152)) * 100,
+    1
+  )}% prom`;
+  rTotal4.getCell(15).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  rTotal4.getCell(15).alignment = { vertical: 'middle', horizontal: 'right' };
+
+  for (let c = 1; c <= 15; c++) {
+    const cell = rTotal4.getCell(c);
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
@@ -865,88 +1080,7 @@ export async function exportExecutiveSummaryXlsx(
   }
 
   // -------------------------------------------------------------
-  // HOJA 3: SECCIÓN 01 - DESGLOSE DE PROCESOS MACRO POR GERENCIA
-  // -------------------------------------------------------------
-  const ws3 = workbook.addWorksheet('Sec 01 - Procesos Macro', {
-    views: [{ showGridLines: true }],
-  });
-
-  // Generous column widths for Macro Processes
-  ws3.columns = [
-    { width: 42 }, // Gerencia
-    { width: 46 }, // Proceso Macro
-    { width: 24 }, // Actividades Únicas
-    { width: 22 }, // Colaboradores
-    { width: 26 }, // Horas Totales
-    { width: 26 }, // Horas Manuales
-    { width: 26 }, // Horas Auto
-  ];
-
-  ws3.mergeCells('A1:G1');
-  const ws3Title = ws3.getCell('A1');
-  ws3Title.value = 'SECCIÓN 01: DESGLOSE DETALLADO DE PROCESOS MACRO POR GERENCIA';
-  ws3Title.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
-  ws3Title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
-  ws3Title.alignment = { vertical: 'middle', horizontal: 'center' };
-  ws3.getRow(1).height = 32;
-
-  const macroHeaders = [
-    'Gerencia',
-    'Proceso Macro',
-    'Actividades Únicas',
-    'Colaboradores',
-    'Horas Totales (h)',
-    'Horas Manuales (h)',
-    'Horas Auto (h)',
-  ];
-  const rMacroHead = ws3.getRow(2);
-  rMacroHead.height = 24;
-  macroHeaders.forEach((th, idx) => {
-    const cell = rMacroHead.getCell(idx + 1);
-    cell.value = th;
-    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
-    cell.alignment = { vertical: 'middle', horizontal: idx < 2 ? 'left' : 'right' };
-  });
-
-  let macroRowIndex = 3;
-  summaries.forEach((s) => {
-    (s.macroProcessesList || []).forEach((m) => {
-      const r = ws3.getRow(macroRowIndex);
-      r.height = 21;
-      r.getCell(1).value = s.gerencia;
-      r.getCell(2).value = m.nombre;
-      r.getCell(3).value = m.totalActividades;
-      r.getCell(4).value = m.colaboradoresCount;
-      r.getCell(5).value = m.horasTotales;
-      r.getCell(6).value = m.horasManuales;
-      r.getCell(7).value = m.horasAutomatizadas;
-
-      r.getCell(3).numFmt = '#,##0';
-      r.getCell(4).numFmt = '#,##0';
-      r.getCell(5).numFmt = '#,##0.0';
-      r.getCell(6).numFmt = '#,##0.0';
-      r.getCell(7).numFmt = '#,##0.0';
-
-      for (let c = 1; c <= 7; c++) {
-        const cell = r.getCell(c);
-        cell.font = { name: 'Arial', size: 9 };
-        cell.alignment = { vertical: 'middle', horizontal: c <= 2 ? 'left' : 'right' };
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: macroRowIndex % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' },
-        };
-        cell.border = {
-          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-        };
-      }
-      macroRowIndex++;
-    });
-  });
-
-  // -------------------------------------------------------------
-  // WRITE AND DOWNLOAD WORKBOOK (STRICTLY NO SECTIONS 03 OR 04)
+  // WRITE AND DOWNLOAD WORKBOOK
   // -------------------------------------------------------------
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], {

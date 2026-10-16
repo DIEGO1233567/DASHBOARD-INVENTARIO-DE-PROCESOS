@@ -431,7 +431,7 @@ export default function App() {
               </select>
             </div>
 
-            {/* Botón Descargar Resumen Ejecutivo (.xlsx) desde encabezados hasta Sección 2 (sin Sec 3 ni 4) */}
+            {/* Botón Descargar Reporte (.xlsx): Hoja 1 (Sec 1 + Gráfica), Hoja 2 (Zoom Macro), Hoja 3 (Desglose Actividades Macro) y Hoja 4 (Base de datos Colaboradores con Actividad/Proceso) */}
             <button
               type="button"
               disabled={isExportingExecutive}
@@ -443,19 +443,19 @@ export default function App() {
                     allGerenciaSummaries,
                     colaboradorSummaries,
                     selectedGerencia,
-                    `Resumen_Ejecutivo_Encabezados_a_Sec2_${selectedGerencia === 'ALL' ? 'Global' : selectedGerencia.replace(/\s+/g, '_')}.xlsx`
+                    `Reporte_Sec1_y_Sec2_${selectedGerencia === 'ALL' ? 'Consolidado' : selectedGerencia.replace(/\s+/g, '_')}.xlsx`
                   );
                 } catch (err) {
-                  console.error('Error al exportar resumen ejecutivo:', err);
+                  console.error('Error al exportar reporte:', err);
                 } finally {
                   setIsExportingExecutive(false);
                 }
               }}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-950 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 rounded-md transition-colors whitespace-nowrap shrink-0 shadow-2xs cursor-pointer disabled:opacity-60"
-              title="Descargar libro Excel (.xlsx) con lo más representativo desde los encabezados hasta la Sección 2 (sin Secciones 3 ni 4)"
+              title="Descargar libro Excel (.xlsx): Hoja 1 (Sección 1 + Gráfica), Hoja 2 (Zoom Procesos Macro), Hoja 3 (Desglose Actividades Macro) y Hoja 4 (Base de datos Colaboradores con Actividad/Proceso)"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
-              {isExportingExecutive ? 'Generando .xlsx...' : 'Descargar Resumen .xlsx'}
+              {isExportingExecutive ? 'Generando .xlsx...' : 'Descargar Reporte .xlsx'}
             </button>
           </div>
         </div>
