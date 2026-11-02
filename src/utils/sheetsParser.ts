@@ -1,8 +1,75 @@
 import * as XLSX from 'xlsx';
-import { ColaboradorSummaryItem, GerenciaSummaryItem, MacroProcessStat, ProcessRecord } from '../types/sheets';
+import { ColaboradorSummaryItem, GerenciaSummaryItem, MacroProcessStat, ProcessRecord, SubdireccionSummaryItem } from '../types/sheets';
 
 import { normalizeNumber } from './kpiCalculator';
 export { normalizeNumber };
+
+/**
+ * Canonical ordering of Gerencias requested by the user:
+ * First CXP, then CE/GDP (CEGDP), and so on.
+ */
+export const CANONICAL_GERENCIA_ORDER = [
+  'Activo Fijo',
+  'AVE',
+  'CE/GDP',
+  'CEGDP',
+  'Conciliaciones Bancarias',
+  'Consolidación Información Financiera',
+  'Consolidación Operaciones',
+  'CXP',
+  'Depósito Bancario',
+  'Eficiencia de Procesos',
+  'Facturación',
+  'Nómina',
+  'Sbb, Importadoras y Extranjeras LPC',
+  'Servicios',
+  'Validaciones',
+];
+
+/**
+ * Returns or infers the Subdirección to which each Gerencia belongs.
+ * If explicit Subdirección was loaded from spreadsheet column, that value is prioritized.
+ */
+export function inferSubdireccion(gerencia: string, explicitSub?: string): string {
+  if (explicitSub && explicitSub.trim() && explicitSub.trim() !== 'N/A' && explicitSub.trim() !== '-' && explicitSub.trim() !== 'General') {
+    return explicitSub.trim();
+  }
+  const g = (gerencia || '').toUpperCase().trim();
+  if (
+    g.includes('CXP') ||
+    g.includes('CUENTAS POR PAGAR') ||
+    g.includes('CE/GDP') ||
+    g.includes('CEGDP') ||
+    g.includes('IMPORTADORAS') ||
+    g.includes('SBB') ||
+    g.includes('SERVICIOS')
+  ) {
+    return 'Subdirección de Cuentas por Pagar y Comercio';
+  }
+  if (
+    g.includes('CONSOLID') ||
+    g.includes('ACTIVO FIJO') ||
+    g.includes('FACTURACI')
+  ) {
+    return 'Subdirección de Contabilidad y Consolidación';
+  }
+  if (
+    g.includes('CONCILIACION') ||
+    g.includes('DEPOSITO') ||
+    g.includes('DEPÓSITO') ||
+    g.includes('AVE') ||
+    g.includes('VALIDACION')
+  ) {
+    return 'Subdirección de Tesorería y Conciliaciones';
+  }
+  if (g.includes('NOMINA') || g.includes('NÓMINA')) {
+    return 'Subdirección de Nómina y Compensaciones';
+  }
+  if (g.includes('EFICIENCIA') || g.includes('PROCESOS')) {
+    return 'Subdirección de Eficiencia y Procesos';
+  }
+  return 'Subdirección de Finanzas y Administración';
+}
 
 /**
  * Utility functions for numeric display across the dashboard.
@@ -125,6 +192,35 @@ export function computeGerenciaSummaries(records: ProcessRecord[]): GerenciaSumm
         ? Number((((horasAutomatizadas + horasPotencialAutomatizable) / horasTotales) * 100).toFixed(1))
         : 0;
 
+    const subdireccion = items[0]?.subdireccion || inferSubdireccion(gerencia);
+
+    // Attribute each unique activity in this gerencia to its primary macro process
+    // so that: sum(m.totalActividades for all macros in gerencia) === uniqueGerenciaActividades
+    const actToMacroWeight = new Map<string, Map<string, number>>();
+    for (const it of items) {
+      const actKey = (it.actividadProceso || '').trim().toLowerCase();
+      const macroName = (it.procesoMacro || 'Sin Proceso Macro').trim();
+      const hTot = normalizeNumber(it.horasMensualesTotal != null ? it.horasMensualesTotal : it.horasMensualesActividad);
+      if (!actToMacroWeight.has(actKey)) {
+        actToMacroWeight.set(actKey, new Map<string, number>());
+      }
+      const mMap = actToMacroWeight.get(actKey)!;
+      mMap.set(macroName, (mMap.get(macroName) || 0) + hTot + 0.001);
+    }
+
+    const macroUniqueActsCount = new Map<string, number>();
+    for (const [, mMap] of actToMacroWeight.entries()) {
+      let bestMacro = '';
+      let maxW = -1;
+      for (const [mName, w] of mMap.entries()) {
+        if (w > maxW) {
+          maxW = w;
+          bestMacro = mName;
+        }
+      }
+      macroUniqueActsCount.set(bestMacro, (macroUniqueActsCount.get(bestMacro) || 0) + 1);
+    }
+
     const macroProcessesList: MacroProcessStat[] = Array.from(macroMap.entries()).map(
       ([nombre, mItems]) => {
         const mTotal = mItems.reduce(
@@ -136,15 +232,15 @@ export function computeGerenciaSummaries(records: ProcessRecord[]): GerenciaSumm
           0
         );
         const mAuto = mItems.reduce((sum, it) => sum + normalizeNumber(it.horasMensualesAutomatizadas), 0);
-        const uniqueMacroActividades = new Set(
-          mItems.map((it) => (it.actividadProceso || '').trim().toLowerCase())
-        ).size;
+        const uniqueMacroActividades = macroUniqueActsCount.get(nombre) || 0;
         const mColabs = new Set(
           mItems.map((it) => (it.responsableFuncional || '').trim().toLowerCase())
         ).size;
 
         return {
           nombre,
+          subdireccion,
+          gerencia,
           totalActividades: uniqueMacroActividades,
           totalFilas: mItems.length,
           horasTotales: Number(mTotal.toFixed(1)),
@@ -163,6 +259,7 @@ export function computeGerenciaSummaries(records: ProcessRecord[]): GerenciaSumm
 
     summaries.push({
       gerencia,
+      subdireccion,
       totalProcesosMacro: macroMap.size,
       totalActividades: uniqueGerenciaActividades,
       totalFilas: items.length,
@@ -181,8 +278,10 @@ export function computeGerenciaSummaries(records: ProcessRecord[]): GerenciaSumm
     });
   }
 
-  // Sort alphabetically or by total hours descending
-  return summaries.sort((a, b) => b.horasTotales - a.horasTotales);
+  // Sort alphabetically by Gerencia (Activo Fijo, AVE, CE/GDP, etc.) as requested
+  return summaries.sort((a, b) =>
+    a.gerencia.localeCompare(b.gerencia, 'es', { sensitivity: 'base' })
+  );
 }
 
 /**
@@ -247,9 +346,12 @@ export function computeColaboradorSummaries(records: ProcessRecord[]): Colaborad
       items.map((it) => (it.actividadProceso || '').trim().toLowerCase())
     ).size;
 
+    const subdireccion = items[0]?.subdireccion || inferSubdireccion(gerencia);
+
     results.push({
       colaborador,
       gerencia,
+      subdireccion,
       puesto,
       totalActividades: uniqueColabActs,
       horasTotales: Number(horasTotales.toFixed(1)),
@@ -266,6 +368,76 @@ export function computeColaboradorSummaries(records: ProcessRecord[]): Colaborad
 
   // Sort by manual workload (hours) descending
   return results.sort((a, b) => b.horasManuales - a.horasManuales);
+}
+
+/**
+ * Computes consolidated KPIs grouped by Subdirección.
+ * Used for the Subdirección Pivot summary table and dashboard filter.
+ */
+export function computeSubdireccionSummaries(records: ProcessRecord[]): SubdireccionSummaryItem[] {
+  const map = new Map<string, ProcessRecord[]>();
+
+  for (const r of records) {
+    const sub = (r.subdireccion || inferSubdireccion(r.gerencia)).trim();
+    if (!map.has(sub)) {
+      map.set(sub, []);
+    }
+    map.get(sub)!.push(r);
+  }
+
+  const results: SubdireccionSummaryItem[] = [];
+
+  for (const [subdireccion, items] of map.entries()) {
+    const gerenciasSet = new Set<string>();
+    const macroSet = new Set<string>();
+    const actSet = new Set<string>();
+    const colabSet = new Set<string>();
+
+    let horasTotales = 0;
+    let horasManuales = 0;
+    let horasAutomatizadas = 0;
+    let horasPotencialAutomatizable = 0;
+
+    for (const it of items) {
+      if (it.gerencia) gerenciasSet.add(it.gerencia.trim());
+      if (it.procesoMacro) macroSet.add(`${it.gerencia}:::${it.procesoMacro.trim()}`);
+      if (it.actividadProceso) actSet.add(`${it.gerencia}:::${it.actividadProceso.trim().toLowerCase()}`);
+      if (it.responsableFuncional) colabSet.add(`${it.gerencia}:::${it.responsableFuncional.trim().toLowerCase()}`);
+
+      const hTot = normalizeNumber(it.horasMensualesTotal != null ? it.horasMensualesTotal : it.horasMensualesActividad);
+      const hMan = normalizeNumber(it.horasManualesTotal != null ? it.horasManualesTotal : it.horasManuales);
+      const hAut = normalizeNumber(it.horasMensualesAutomatizadas);
+
+      horasTotales += hTot;
+      horasManuales += hMan;
+      horasAutomatizadas += hAut;
+
+      if (normalizeYesNo(it.esAutomatizable) === 'Sí') {
+        horasPotencialAutomatizable += hMan;
+      }
+    }
+
+    const pctAutomatizado =
+      horasTotales > 0 ? Number(((horasAutomatizadas / horasTotales) * 100).toFixed(1)) : 0;
+
+    results.push({
+      subdireccion,
+      gerenciasCount: gerenciasSet.size,
+      gerenciasList: Array.from(gerenciasSet).sort((a, b) =>
+        a.localeCompare(b, 'es', { sensitivity: 'base' })
+      ),
+      totalProcesosMacro: macroSet.size,
+      totalActividades: actSet.size,
+      totalColaboradores: colabSet.size,
+      horasTotales: Number(horasTotales.toFixed(1)),
+      horasManuales: Number(horasManuales.toFixed(1)),
+      horasAutomatizadas: Number(horasAutomatizadas.toFixed(1)),
+      horasPotencialAutomatizable: Number(horasPotencialAutomatizable.toFixed(1)),
+      pctAutomatizado,
+    });
+  }
+
+  return results.sort((a, b) => b.horasTotales - a.horasTotales);
 }
 
 /**
@@ -413,9 +585,13 @@ export function convertActivitiesToRecords(acts: any[]): ProcessRecord[] {
     const hMan = normalizeNumber(a.horasManualesTotal != null ? a.horasManualesTotal : a.horasManuales);
     const hAut = normalizeNumber(a.horasMensualesAutomatizadas);
 
+    const g = (a.gerencia || 'General').trim();
+    const sub = a.subdireccion || inferSubdireccion(g);
+
     return {
       id: a.id || `rec-${idx}-${Date.now()}`,
-      gerencia: (a.gerencia || 'General').trim(),
+      subdireccion: sub,
+      gerencia: g,
       areaSubArea: (a.areaSubArea || a.gerencia || 'General').trim(),
       tipoProceso: a.tipoProceso || 'OPERATIVO',
       procesoMacro: a.procesoMacro || 'General',

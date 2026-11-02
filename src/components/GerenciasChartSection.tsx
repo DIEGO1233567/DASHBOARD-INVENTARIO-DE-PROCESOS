@@ -28,7 +28,7 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
   selectedGerencia,
   onSelectGerencia,
 }) => {
-  const [sortOption, setSortOption] = useState<SortOption>('totalHoras');
+  const [sortOption, setSortOption] = useState<SortOption>('nombre');
   const [viewMode, setViewMode] = useState<ViewMode>('stacked');
   const [hoveredGerencia, setHoveredGerencia] = useState<GerenciaSummaryItem | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
@@ -81,7 +81,7 @@ export const GerenciasChartSection: React.FC<GerenciasChartSectionProps> = ({
       case 'pctAuto':
         return list.sort((a, b) => (b.pctAutomatizado || 0) - (a.pctAutomatizado || 0));
       case 'nombre':
-        return list.sort((a, b) => a.gerencia.localeCompare(b.gerencia));
+        return list.sort((a, b) => a.gerencia.localeCompare(b.gerencia, 'es', { sensitivity: 'base' }));
       default:
         return list;
     }

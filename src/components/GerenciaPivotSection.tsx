@@ -82,10 +82,38 @@ export function GerenciaPivotSection({
   };
 
   const filteredSummaries = useMemo(() => {
-    return summaries.filter((s) =>
-      s.gerencia.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    return summaries
+      .filter((s) => s.gerencia.toLowerCase().includes(searchTerm.toLowerCase()))
+      .sort((a, b) => a.gerencia.localeCompare(b.gerencia, 'es', { sensitivity: 'base' }));
   }, [summaries, searchTerm]);
+
+  // Consolidate totals for Section 01 table footer
+  const section1Totals = useMemo(() => {
+    let totProcesosMacro = 0;
+    let totActividades = 0;
+    let totColaboradores = 0;
+    let totHorasAuto = 0;
+    let totHorasManuales = 0;
+    let totHorasTotales = 0;
+
+    for (const s of filteredSummaries) {
+      totProcesosMacro += s.totalProcesosMacro || 0;
+      totActividades += s.totalActividades || 0;
+      totColaboradores += s.totalColaboradores || 0;
+      totHorasAuto += s.horasAutomatizadas || 0;
+      totHorasManuales += s.horasManuales || 0;
+      totHorasTotales += s.horasTotales || 0;
+    }
+
+    return {
+      totProcesosMacro,
+      totActividades,
+      totColaboradores,
+      totHorasAuto,
+      totHorasManuales,
+      totHorasTotales,
+    };
+  }, [filteredSummaries]);
 
   const toggleExpandGerencia = (gerencia: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -142,6 +170,7 @@ export function GerenciaPivotSection({
             <thead>
               <tr className="bg-slate-900 text-white font-semibold border-b border-slate-800">
                 <th className="py-3 px-3 w-10 text-center"></th>
+                <th className="py-3 px-4 font-medium tracking-wide">Subdirección</th>
                 <th className="py-3 px-4 font-medium tracking-wide">Gerencia</th>
                 <th className="py-3 px-3 text-center font-medium tracking-wide">
                   Procesos Macro
@@ -169,7 +198,7 @@ export function GerenciaPivotSection({
             <tbody className="divide-y divide-slate-200">
               {filteredSummaries.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-500">
+                  <td colSpan={10} className="py-8 text-center text-slate-500">
                     No se encontraron gerencias que coincidan con la búsqueda.
                   </td>
                 </tr>
@@ -202,6 +231,13 @@ export function GerenciaPivotSection({
                               <ChevronRight className="w-4 h-4" />
                             )}
                           </button>
+                        </td>
+
+                        {/* Subdirección */}
+                        <td className="py-3 px-4 text-slate-700">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200/80">
+                            {summary.subdireccion || 'General'}
+                          </span>
                         </td>
 
                         {/* Gerencia Name */}
@@ -286,7 +322,7 @@ export function GerenciaPivotSection({
                       {/* Expandable Drill-Down: Macro Processes of this Gerencia with Activities sub-breakdown */}
                       {isExpanded && (
                         <tr className="bg-slate-50/95 border-b border-slate-200">
-                          <td colSpan={9} className="p-4 pl-10">
+                          <td colSpan={10} className="p-4 pl-10">
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
                                 <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -640,6 +676,42 @@ export function GerenciaPivotSection({
                 })
               )}
             </tbody>
+            {/* Total Consolidado Row for Section 01 */}
+            <tfoot>
+              <tr className="bg-slate-900 text-white font-semibold border-t-2 border-slate-700 shadow-inner">
+                <td className="py-3 px-3 text-center"></td>
+                <td colSpan={2} className="py-3 px-4 font-bold text-white uppercase tracking-wider text-xs">
+                  <div className="flex items-center gap-2">
+                    <span>Total Consolidado</span>
+                    <span className="text-[11px] font-normal text-slate-300 normal-case tracking-normal">
+                      ({formatThousands(filteredSummaries.length)} gerencias)
+                    </span>
+                  </div>
+                </td>
+                <td className="py-3 px-3 text-center font-mono tabular-nums text-white font-bold">
+                  {formatThousands(section1Totals.totProcesosMacro)}
+                </td>
+                <td className="py-3 px-3 text-center font-mono tabular-nums text-white font-bold">
+                  {formatThousands(section1Totals.totActividades)}
+                </td>
+                <td className="py-3 px-3 text-center font-mono tabular-nums text-sky-200 font-bold">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-blue-950 border border-blue-600/60 text-sky-200">
+                    <Users className="w-3 h-3 text-sky-400" />
+                    <span>{formatThousands(section1Totals.totColaboradores)}</span>
+                  </span>
+                </td>
+                <td className="py-3 px-3 text-right font-mono tabular-nums text-sky-200 font-bold">
+                  {formatHours(section1Totals.totHorasAuto)} h
+                </td>
+                <td className="py-3 px-3 text-right font-mono tabular-nums text-amber-300 font-bold">
+                  {formatHours(section1Totals.totHorasManuales)} h
+                </td>
+                <td className="py-3 px-3 text-right font-mono tabular-nums text-white font-bold">
+                  {formatHours(section1Totals.totHorasTotales)} h
+                </td>
+                <td className="py-3 px-4 text-center"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>

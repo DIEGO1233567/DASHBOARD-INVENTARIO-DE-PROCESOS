@@ -1,5 +1,6 @@
 export interface ActivityItem {
   id: string;
+  subdireccion?: string;
   gerencia: string;
   areaSubArea: string;
   tipoProceso: string;

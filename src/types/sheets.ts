@@ -1,5 +1,6 @@
 export interface ProcessRecord {
   id: string;
+  subdireccion?: string;
   gerencia: string;
   areaSubArea: string;
   tipoProceso: string;
@@ -31,6 +32,8 @@ export interface SheetSyncConfig {
 
 export interface MacroProcessStat {
   nombre: string;
+  subdireccion?: string;
+  gerencia?: string;
   totalActividades: number; // Conteo de actividades ÚNICAS
   totalFilas?: number;
   horasTotales: number;
@@ -43,6 +46,7 @@ export interface MacroProcessStat {
 
 export interface GerenciaSummaryItem {
   gerencia: string;
+  subdireccion?: string;
   totalProcesosMacro: number; // Conteo de procesos macro ÚNICOS
   totalActividades: number; // Conteo de actividades / procesos ÚNICOS
   totalFilas?: number;
@@ -63,6 +67,7 @@ export interface GerenciaSummaryItem {
 export interface ColaboradorSummaryItem {
   colaborador: string;
   gerencia: string;
+  subdireccion?: string;
   puesto: string;
   totalActividades: number;
   horasTotales: number;
@@ -74,4 +79,18 @@ export interface ColaboradorSummaryItem {
   porcentajeJornada: number;
   horasPotencialAutomatizable: number;
   actividades: ProcessRecord[];
+}
+
+export interface SubdireccionSummaryItem {
+  subdireccion: string;
+  gerenciasCount: number;
+  gerenciasList: string[];
+  totalProcesosMacro: number;
+  totalActividades: number;
+  totalColaboradores: number;
+  horasTotales: number;
+  horasManuales: number;
+  horasAutomatizadas: number;
+  horasPotencialAutomatizable: number;
+  pctAutomatizado: number;
 }

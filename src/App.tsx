@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   FileSpreadsheet,
   RotateCcw,
@@ -15,12 +15,17 @@ import {
   Sparkles,
   ShieldCheck,
   Database,
+  Lock,
+  ArrowRight,
+  Filter,
 } from 'lucide-react';
 import { INITIAL_RECORDS } from './data/initialData';
 import { ProcessRecord, SheetSyncConfig } from './types/sheets';
 import {
   computeGerenciaSummaries,
   computeColaboradorSummaries,
+  computeSubdireccionSummaries,
+  inferSubdireccion,
   convertActivitiesToRecords,
   normalizeNumber,
   formatThousands,
@@ -36,23 +41,24 @@ import {
 import { GerenciasChartSection } from './components/GerenciasChartSection';
 import { GerenciaPivotSection } from './components/GerenciaPivotSection';
 import { ColaboradoresByGerenciaSection } from './components/ColaboradoresByGerenciaSection';
+import { SubdireccionSummarySection } from './components/SubdireccionSummarySection';
 import { DynamicCatalogSection } from './components/DynamicCatalogSection';
 
 const DEFAULT_GERENCIA_SHEETS = [
-  'Nómina',
-  'CXP',
-  'CE/GDP',
-  'Sbb, Importadoras y Extranjeras LPC',
-  'Consolidación Operaciones',
-  'Consolidación Información Financiera',
-  'Eficiencia de Procesos',
-  'Conciliaciones Bancarias',
   'Activo Fijo',
-  'Servicios',
-  'Depósito Bancario',
-  'Validaciones',
   'AVE',
+  'CE/GDP',
+  'Conciliaciones Bancarias',
+  'Consolidación Información Financiera',
+  'Consolidación Operaciones',
+  'CXP',
+  'Depósito Bancario',
+  'Eficiencia de Procesos',
   'Facturación',
+  'Nómina',
+  'Sbb, Importadoras y Extranjeras LPC',
+  'Servicios',
+  'Validaciones',
 ];
 
 export default function App() {
@@ -82,8 +88,17 @@ export default function App() {
     return INITIAL_RECORDS;
   });
 
+  const [hasAuthenticatedDrive, setHasAuthenticatedDrive] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('liverpool_drive_auth_synced') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [selectedSubdireccion, setSelectedSubdireccion] = useState<string>('ALL');
   const [selectedGerencia, setSelectedGerencia] = useState<string>('ALL');
-  const [showWelcomeSyncModal, setShowWelcomeSyncModal] = useState<boolean>(true);
+  const [showWelcomeSyncModal, setShowWelcomeSyncModal] = useState<boolean>(false);
   const [isExportingExecutive, setIsExportingExecutive] = useState<boolean>(false);
   const [isSyncingGoogle, setIsSyncingGoogle] = useState<boolean>(false);
   const [syncStatus, setSyncStatus] = useState<{
@@ -100,26 +115,59 @@ export default function App() {
     sourceType: 'demo',
   });
 
-  // All Gerencia summaries (always computed across all loaded sheets for global context)
-  const allGerenciaSummaries = useMemo(
-    () => computeGerenciaSummaries(records),
+  // If not authenticated, the app displays the dedicated full-screen login gate directly.
+  // The user clicks to initiate Google Drive authentication, which ensures the popup is not blocked by browsers.
+
+  // Subdirección summaries
+  const allSubdireccionSummaries = useMemo(
+    () => computeSubdireccionSummaries(records),
     [records]
   );
 
-  // Scoped records when filtering by a specific Gerencia
+  const allSubdirecciones = useMemo(
+    () => allSubdireccionSummaries.map((s) => s.subdireccion),
+    [allSubdireccionSummaries]
+  );
+
+  // All Gerencia summaries (scoped by subdirección if one is selected)
+  const allGerenciaSummaries = useMemo(() => {
+    const gtes = computeGerenciaSummaries(records);
+    if (selectedSubdireccion === 'ALL') return gtes;
+    return gtes.filter(
+      (g) => (g.subdireccion || inferSubdireccion(g.gerencia)) === selectedSubdireccion
+    );
+  }, [records, selectedSubdireccion]);
+
+  // Scoped records when filtering by Subdirección and/or Gerencia
   const scopedRecords = useMemo(() => {
-    if (selectedGerencia === 'ALL') return records;
-    return records.filter((r) => r.gerencia === selectedGerencia);
-  }, [records, selectedGerencia]);
+    let list = records;
+    if (selectedSubdireccion !== 'ALL') {
+      list = list.filter(
+        (r) => (r.subdireccion || inferSubdireccion(r.gerencia)) === selectedSubdireccion
+      );
+    }
+    if (selectedGerencia !== 'ALL') {
+      list = list.filter((r) => r.gerencia === selectedGerencia);
+    }
+    return list;
+  }, [records, selectedSubdireccion, selectedGerencia]);
 
-  // Collaborator summaries
-  const colaboradorSummaries = useMemo(
-    () => computeColaboradorSummaries(records),
-    [records]
-  );
+  // Collaborator summaries (scoped by subdirección if one is selected)
+  const colaboradorSummaries = useMemo(() => {
+    const colabs = computeColaboradorSummaries(records);
+    if (selectedSubdireccion !== 'ALL') {
+      return colabs.filter(
+        (c) => (c.subdireccion || inferSubdireccion(c.gerencia)) === selectedSubdireccion
+      );
+    }
+    return colabs;
+  }, [records, selectedSubdireccion]);
 
   const allGerenciaNames = useMemo(
-    () => allGerenciaSummaries.map((g) => g.gerencia),
+    () =>
+      [...allGerenciaSummaries.map((g) => g.gerencia)].sort((a, b) =>
+        a.localeCompare(b, 'es', { sensitivity: 'base' })
+      ),
     [allGerenciaSummaries]
   );
 
@@ -211,6 +259,7 @@ export default function App() {
           const result = await fetchSpreadsheetData(accessToken, sheetId);
           if (result.activities && result.activities.length > 0) {
             const imported = convertActivitiesToRecords(result.activities);
+            setSelectedSubdireccion('ALL');
             setSelectedGerencia('ALL');
             setRecords(imported);
             setSyncConfig({
@@ -224,17 +273,16 @@ export default function App() {
               sourceType: 'google-sheets-url',
             });
             try {
+              sessionStorage.setItem('liverpool_drive_auth_synced', 'true');
               localStorage.setItem('liverpool_dashboard_records_v5', JSON.stringify(imported));
             } catch (e) {
               console.warn('Error saving to storage', e);
             }
+            setHasAuthenticatedDrive(true);
             setSyncStatus({
               type: 'success',
               text: `¡Sincronización exitosa! Se cargaron ${imported.length} actividades en ${result.sheetNames.length} gerencias.`,
             });
-            setTimeout(() => {
-              setShowWelcomeSyncModal(false);
-            }, 1500);
             setTimeout(() => {
               setSyncStatus(null);
             }, 6000);
@@ -288,157 +336,59 @@ export default function App() {
     });
   };
 
+  // If the user is not authenticated with Google Drive yet, display the full-screen login gate
+  // This prevents exploring stale or unverified data without connecting
+  if (!hasAuthenticatedDrive) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 font-sans">
+        <div className="max-w-xs w-full flex flex-col items-center space-y-3">
+          {/* Status feedback only if actively connecting or error */}
+          {syncStatus && (
+            <div
+              className={`w-full rounded-xl p-3 text-xs flex items-center justify-between gap-2 border ${
+                syncStatus.type === 'error'
+                  ? 'bg-rose-950/80 border-rose-500/50 text-rose-200'
+                  : 'bg-blue-950/80 border-blue-500/50 text-blue-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {syncStatus.type === 'info' && (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400 shrink-0" />
+                )}
+                {syncStatus.type === 'error' && (
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                )}
+                <span className="font-medium text-[11px]">{syncStatus.text}</span>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleDirectGoogleConnect}
+            disabled={isSyncingGoogle}
+            className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 rounded-xl shadow-lg transition-all cursor-pointer disabled:cursor-wait"
+          >
+            {isSyncingGoogle ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Conectando...</span>
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet className="w-5 h-5 text-sky-300" />
+                <span>Iniciar Sesión</span>
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
-      {/* Modal de Bienvenida para Conectar y Sincronizar Google Sheets al entrar a la página */}
-      {showWelcomeSyncModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-200"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="welcome-modal-title"
-        >
-          <div
-            className="relative bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden text-slate-800 flex flex-col my-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header decorativo con gradiente corporativo */}
-            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white p-6 relative">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3.5">
-                  <div className="p-3 bg-blue-600/30 rounded-xl border border-blue-500/30 shadow-inner">
-                    <FileSpreadsheet className="w-7 h-7 text-sky-400" />
-                  </div>
-                  <div>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-blue-500/20 text-blue-300 border border-blue-400/30 mb-1">
-                      <Sparkles className="w-3 h-3 text-sky-300" />
-                      Sincronización en Vivo
-                    </span>
-                    <h2 id="welcome-modal-title" className="text-lg sm:text-xl font-bold tracking-tight text-white">
-                      Actualizar Inventario de Procesos
-                    </h2>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowWelcomeSyncModal(false)}
-                  className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                  title="Cerrar ventana y ver tablero con datos precargados"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Contenido principal */}
-            <div className="p-6 space-y-4">
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
-                ¡Bienvenido! Conecta tu cuenta de Google para acceder a la información
-              </p>
-
-              {/* Beneficios clave de sincronizar */}
-              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2.5">
-                <div className="flex items-start gap-3">
-                  <span className="p-1 rounded bg-blue-100 text-blue-700 mt-0.5 shrink-0">
-                    <Database className="w-3.5 h-3.5" />
-                  </span>
-                  <div className="text-xs text-slate-700 leading-snug">
-                    <strong className="text-slate-900 font-semibold block">14 Gerencias Oficiales</strong>
-                    Nómina, CXP, CE/GDP, Facturación, Activo Fijo y todas las áreas operativas.
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <span className="p-1 rounded bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                    <Clock className="w-3.5 h-3.5" />
-                  </span>
-                  <div className="text-xs text-slate-700 leading-snug">
-                    <strong className="text-slate-900 font-semibold block">Cargas Horarias y Potencial al Día</strong>
-                    Horas manuales, horas automatizadas y potencial de optimización en tiempo real.
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <span className="p-1 rounded bg-amber-100 text-amber-700 mt-0.5 shrink-0">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                  </span>
-                  <div className="text-xs text-slate-700 leading-snug">
-                    <strong className="text-slate-900 font-semibold block">Conexión Segura de Solo Lectura</strong>
-                    Autorización directa mediante Google Identity Services sin alterar tus archivos.
-                  </div>
-                </div>
-              </div>
-
-              {/* Estado de sincronización en tiempo real dentro del modal si está activo */}
-              {syncStatus && (
-                <div
-                  className={`rounded-lg p-3 text-xs flex items-center justify-between gap-2.5 border transition-all ${
-                    syncStatus.type === 'success'
-                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                      : syncStatus.type === 'error'
-                      ? 'bg-rose-50 border-rose-300 text-rose-900'
-                      : 'bg-blue-50 border-blue-300 text-blue-900'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {syncStatus.type === 'success' && (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    )}
-                    {syncStatus.type === 'error' && (
-                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                    )}
-                    {syncStatus.type === 'info' && (
-                      <RefreshCw className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
-                    )}
-                    <span className="font-medium">{syncStatus.text}</span>
-                  </div>
-                  {syncStatus.actionUrl && (
-                    <a
-                      href={syncStatus.actionUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-bold underline ml-1"
-                    >
-                      {syncStatus.actionLabel || 'Ver'}
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Footer con botones de acción */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => setShowWelcomeSyncModal(false)}
-                className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer text-center"
-              >
-                Continuar con datos precargados
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDirectGoogleConnect}
-                disabled={isSyncingGoogle}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800/80 rounded-lg shadow-sm transition-all cursor-pointer disabled:cursor-wait"
-              >
-                {isSyncingGoogle ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Conectando con Google...</span>
-                  </>
-                ) : (
-                  <>
-                    <FileSpreadsheet className="w-4 h-4" />
-                    <span>Conectar Google Sheets y Actualizar</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Strict 3-Zone Corporate Top Bar */}
       <header className="sticky top-0 z-30 flex items-center justify-between gap-8 px-6 py-3.5 bg-slate-900 text-white border-b border-slate-800 shadow-sm">
         {/* Zone 1: Single text element wordmark */}
@@ -451,6 +401,12 @@ export default function App() {
 
         {/* Zone 2: Navigation links */}
         <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-slate-300">
+          <a
+            href="#resumen-subdirecciones"
+            className="hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
+          >
+            Subdirecciones
+          </a>
           <a
             href="#resumen-gerencial"
             className="hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
@@ -472,17 +428,17 @@ export default function App() {
             onClick={handleDirectGoogleConnect}
             disabled={isSyncingGoogle}
             className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800/80 rounded-md transition-colors whitespace-nowrap shrink-0 shadow-xs cursor-pointer disabled:cursor-wait"
-            title="Iniciar sesión directamente con Google y sincronizar las hojas en tiempo real"
+            title="Sincronizar las hojas en tiempo real desde Google Drive"
           >
             {isSyncingGoogle ? (
               <>
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>Conectando con Google...</span>
+                <span>Sincronizando...</span>
               </>
             ) : (
               <>
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Conectar Google Sheets</span>
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Actualizar Google Drive</span>
               </>
             )}
           </button>
@@ -540,35 +496,21 @@ export default function App() {
         <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-xs">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span>Consolidación Multi-Gerencia</span>
+              <span>Estructura Oficial Multi-Gerencia</span>
               <span aria-hidden="true">·</span>
               <span>
                 Fuente activa:{' '}
                 <strong className="text-slate-800">
-                  {syncConfig.sourceType === 'demo'
-                    ? `Libro Corporativo (${allGerenciaSummaries.length} Hojas de Gerencia)`
-                    : syncConfig.sourceType === 'google-sheets-url'
-                    ? `Google Sheets Sincronizado (${syncConfig.sheetNames.length} Hojas)`
-                    : syncConfig.sourceType === 'xlsx-upload'
-                    ? `Archivo ${syncConfig.fileName} (${syncConfig.sheetNames.length} Hojas)`
-                    : 'Datos integrados desde Portapapeles'}
+                  {syncConfig.sourceType === 'google-sheets-url'
+                    ? `Google Sheets en Vivo (${syncConfig.sheetNames.length} Hojas Oficiales)`
+                    : `Google Drive Sincronizado (${allGerenciaSummaries.length} Hojas)`}
                 </strong>
               </span>
-              {syncConfig.lastSyncedAt ? (
+              {syncConfig.lastSyncedAt && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span>Actualizado {syncConfig.lastSyncedAt}</span>
+                  <span>Última sincronización {syncConfig.lastSyncedAt}</span>
                 </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowWelcomeSyncModal(true)}
-                  className="inline-flex items-center gap-1 font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 px-2 py-0.5 rounded cursor-pointer transition-colors"
-                  title="Abrir ventana para conectar y sincronizar con Google Sheets"
-                >
-                  <RefreshCw className="w-2.5 h-2.5" />
-                  <span>Actualizar desde Google Sheets</span>
-                </button>
               )}
             </div>
             <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight text-balance">
@@ -576,19 +518,48 @@ export default function App() {
             </h1>
           </div>
 
-          {/* Workspace Toolbar Controls - Solo selector de vista y Descargar Resumen .xlsx */}
+          {/* Workspace Toolbar Controls */}
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            {/* Selector Subdirección */}
+            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-md border border-slate-200 text-xs">
+              <Layers className="w-3.5 h-3.5 text-indigo-700" />
+              <label htmlFor="vistaSubdireccionSelect" className="font-semibold text-slate-700 whitespace-nowrap">
+                Subdirección:
+              </label>
+              <select
+                id="vistaSubdireccionSelect"
+                value={selectedSubdireccion}
+                onChange={(e) => {
+                  setSelectedSubdireccion(e.target.value);
+                  setSelectedGerencia('ALL');
+                }}
+                className="bg-transparent font-semibold text-indigo-950 focus:outline-none cursor-pointer max-w-[210px] truncate"
+              >
+                <option value="ALL">
+                  Todas las Subdirecciones ({allSubdireccionSummaries.length})
+                </option>
+                {allSubdirecciones.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Selector Gerencia */}
             <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-md border border-slate-200 text-xs">
               <SlidersHorizontal className="w-3.5 h-3.5 text-blue-900" />
-              <label htmlFor="vistaGerenciaSelect" className="font-semibold text-slate-700 whitespace-nowrap">Vista:</label>
+              <label htmlFor="vistaGerenciaSelect" className="font-semibold text-slate-700 whitespace-nowrap">
+                Gerencia:
+              </label>
               <select
                 id="vistaGerenciaSelect"
                 value={selectedGerencia}
                 onChange={(e) => setSelectedGerencia(e.target.value)}
-                className="bg-transparent font-semibold text-blue-950 focus:outline-none cursor-pointer"
+                className="bg-transparent font-semibold text-blue-950 focus:outline-none cursor-pointer max-w-[190px] truncate"
               >
                 <option value="ALL">
-                  Todas las Gerencias ({allGerenciaSummaries.length} Hojas)
+                  Todas las Gerencias ({allGerenciaNames.length})
                 </option>
                 {allGerenciaNames.map((g) => (
                   <option key={g} value={g}>
@@ -601,24 +572,23 @@ export default function App() {
             {/* Botón Limpiar Filtros */}
             <button
               type="button"
-              onClick={() => setSelectedGerencia('ALL')}
-              disabled={selectedGerencia === 'ALL'}
+              onClick={() => {
+                setSelectedSubdireccion('ALL');
+                setSelectedGerencia('ALL');
+              }}
+              disabled={selectedSubdireccion === 'ALL' && selectedGerencia === 'ALL'}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 shadow-2xs ${
-                selectedGerencia !== 'ALL'
+                selectedSubdireccion !== 'ALL' || selectedGerencia !== 'ALL'
                   ? 'bg-blue-50 text-blue-900 border border-blue-300 hover:bg-blue-100 cursor-pointer'
                   : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
               }`}
-              title={
-                selectedGerencia !== 'ALL'
-                  ? `Limpiar filtro actual (${selectedGerencia}) y restablecer a Todas las Gerencias`
-                  : 'No hay filtros aplicados'
-              }
+              title="Restablecer filtros de Subdirección y Gerencia"
             >
-              <RotateCcw className={`w-3.5 h-3.5 ${selectedGerencia !== 'ALL' ? 'text-blue-700' : 'text-slate-400'}`} />
+              <RotateCcw className={`w-3.5 h-3.5 ${selectedSubdireccion !== 'ALL' || selectedGerencia !== 'ALL' ? 'text-blue-700' : 'text-slate-400'}`} />
               <span>Limpiar filtros</span>
             </button>
 
-            {/* Botón Descargar Resumen / Reporte (.xlsx): Hoja 1 (KPIs + Sec 1 + Gráfica), Hoja 2 (Zoom Macro), Hoja 3 (Desglose Actividades Macro) y Hoja 4 (Base Colaboradores) */}
+            {/* Botón Descargar Resumen / Reporte (.xlsx): Hoja 1 (Sec 1 + Gráfica), Hoja 2 (Zoom Macro), Hoja 3 (Base Colaboradores) */}
             <button
               type="button"
               disabled={isExportingExecutive}
@@ -630,7 +600,7 @@ export default function App() {
                     allGerenciaSummaries,
                     colaboradorSummaries,
                     selectedGerencia,
-                    `Reporte_Resumen_KPIs_Sec1_y_Sec2_${selectedGerencia === 'ALL' ? 'Consolidado' : selectedGerencia.replace(/\s+/g, '_')}.xlsx`
+                    `Reporte_Sec1_y_Sec2_${selectedGerencia === 'ALL' ? 'Consolidado' : selectedGerencia.replace(/\s+/g, '_')}.xlsx`
                   );
                 } catch (err) {
                   console.error('Error al exportar reporte:', err);
@@ -639,7 +609,7 @@ export default function App() {
                 }
               }}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-950 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 rounded-md transition-colors whitespace-nowrap shrink-0 shadow-2xs cursor-pointer disabled:opacity-60"
-              title="Descargar libro Excel con los KPIs de inicio, la gráfica comparativa y la tabla de Sección 1 Resumen Gerencial"
+              title="Descargar libro Excel: Hoja 1 (Sección 1 + Gráfica), Hoja 2 (Zoom Procesos Macro), Hoja 3 (Desglose Actividades por Proceso Macro) y Hoja 4 (Base de datos Sección 2 en orden de Sección 1)"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
               {isExportingExecutive ? 'Generando .xlsx...' : 'Descargar Resumen .xlsx'}
@@ -816,6 +786,23 @@ export default function App() {
           onSelectGerencia={setSelectedGerencia}
         />
 
+        {/* Cuadro Resumen a Nivel Subdirección y Filtro Organizacional */}
+        <SubdireccionSummarySection
+          subdirecciones={allSubdireccionSummaries}
+          selectedSubdireccion={selectedSubdireccion}
+          selectedGerencia={selectedGerencia}
+          onSelectSubdireccion={(sub) => {
+            setSelectedSubdireccion(sub);
+            setSelectedGerencia('ALL');
+          }}
+          onSelectGerencia={(gerencia, subdireccion) => {
+            setSelectedGerencia(gerencia);
+            if (subdireccion && subdireccion !== 'ALL') {
+              setSelectedSubdireccion(subdireccion);
+            }
+          }}
+        />
+
         {/* Section 01: Consolidated Gerencia Pivot Table & Visual Indicators */}
         <GerenciaPivotSection
           summaries={allGerenciaSummaries}
@@ -836,6 +823,7 @@ export default function App() {
         {/* Section 03 & 04: Multi-Dimension Pivot Explorer & 14-Column Master Sheet */}
         <DynamicCatalogSection
           records={records}
+          selectedSubdireccion={selectedSubdireccion}
           selectedGerencia={selectedGerencia}
           onAddRecord={handleAddSingleRecord}
         />

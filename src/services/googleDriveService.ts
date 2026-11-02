@@ -288,6 +288,11 @@ export function parseRowsToActivities(rows: any[][], defaultGerencia: string): A
     ['GERENCIA', 'DIRECCION', 'DIRECCIÓN', 'UNIDAD'],
     ['GERENCIA', 'DIRECCION']
   );
+  const idxSubdireccion = findColIndex(
+    headers,
+    ['SUBDIRECCION', 'SUBDIRECCIÓN', 'SUB-DIRECCION', 'SUB-DIRECCIÓN', 'SUB DIRECCION', 'SUB DIRECCIÓN'],
+    ['SUBDIREC']
+  );
 
   const activities: ActivityItem[] = [];
 
@@ -312,6 +317,7 @@ export function parseRowsToActivities(rows: any[][], defaultGerencia: string): A
       ? defaultGerencia.trim()
       : (getVal(idxGerencia) || rawArea || 'General');
     const rowArea = rawArea || rowGerencia;
+    const rawSubdireccion = getVal(idxSubdireccion);
 
     const actName = getVal(idxAct) || getVal(idxMacro) || `Actividad ${i}`;
     const macroName = getVal(idxMacro) || 'General';
@@ -340,6 +346,7 @@ export function parseRowsToActivities(rows: any[][], defaultGerencia: string): A
 
     activities.push({
       id: `${rowGerencia}-${i}`,
+      subdireccion: rawSubdireccion || undefined,
       gerencia: rowGerencia,
       areaSubArea: areaName,
       tipoProceso: getVal(idxTipo, 'OPERATIVO'),

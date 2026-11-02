@@ -31,16 +31,22 @@ export function ColaboradoresByGerenciaSection({
 
   // Scoped collaborators according to selected gerencia and search
   const filteredColaboradores = useMemo(() => {
-    return colaboradores.filter((c) => {
-      const matchGerencia = selectedGerencia === 'ALL' || c.gerencia === selectedGerencia;
-      const matchSearch =
-        searchTerm === '' ||
-        c.colaborador.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.puesto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.gerencia.toLowerCase().includes(searchTerm.toLowerCase());
+    return colaboradores
+      .filter((c) => {
+        const matchGerencia = selectedGerencia === 'ALL' || c.gerencia === selectedGerencia;
+        const matchSearch =
+          searchTerm === '' ||
+          c.colaborador.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          c.puesto.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          c.gerencia.toLowerCase().includes(searchTerm.toLowerCase());
 
-      return matchGerencia && matchSearch;
-    });
+        return matchGerencia && matchSearch;
+      })
+      .sort((a, b) => {
+        const gerenciaCmp = a.gerencia.localeCompare(b.gerencia, 'es', { sensitivity: 'base' });
+        if (gerenciaCmp !== 0) return gerenciaCmp;
+        return b.horasManuales - a.horasManuales;
+      });
   }, [colaboradores, selectedGerencia, searchTerm]);
 
   // Aggregated workload statistics for the current scope (based on manual hours as team workload)
@@ -94,11 +100,13 @@ export function ColaboradoresByGerenciaSection({
             className="text-xs font-semibold bg-white border border-slate-300 text-blue-950 px-2.5 py-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
           >
             <option value="ALL">Todas las Gerencias</option>
-            {allGerencias.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
+            {[...allGerencias]
+              .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
+              .map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
           </select>
         </div>
       </div>
@@ -150,6 +158,7 @@ export function ColaboradoresByGerenciaSection({
             <thead>
               <tr className="bg-slate-900 text-white font-semibold border-b border-slate-800">
                 <th className="py-3 px-3 w-8"></th>
+                <th className="py-3 px-3 font-medium tracking-wide">Subdirección</th>
                 <th className="py-3 px-4 font-medium tracking-wide">Responsable Funcional</th>
                 <th className="py-3 px-3 font-medium tracking-wide">Gerencia / Puesto</th>
                 <th className="py-3 px-3 text-center font-medium tracking-wide">Carga Actual</th>
@@ -173,7 +182,7 @@ export function ColaboradoresByGerenciaSection({
             <tbody className="divide-y divide-slate-200">
               {filteredColaboradores.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-500">
+                  <td colSpan={10} className="py-8 text-center text-slate-500">
                     No se encontraron colaboradores con los criterios seleccionados.
                   </td>
                 </tr>
@@ -202,6 +211,13 @@ export function ColaboradoresByGerenciaSection({
                               <ChevronRight className="w-4 h-4" />
                             )}
                           </button>
+                        </td>
+
+                        {/* Subdirección */}
+                        <td className="py-3 px-3 text-slate-700">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200/80">
+                            {colab.subdireccion || 'General'}
+                          </span>
                         </td>
 
                         {/* Nombre del Colaborador */}
@@ -275,7 +291,7 @@ export function ColaboradoresByGerenciaSection({
                       {/* Expandable Collaborator Tasks Breakdown */}
                       {isExpanded && (
                         <tr className="bg-slate-50/90 border-b border-slate-200">
-                          <td colSpan={9} className="p-4 pl-10">
+                          <td colSpan={10} className="p-4 pl-10">
                             <div className="space-y-2.5">
                               <div className="flex items-center justify-between text-xs">
                                 <span className="font-bold text-slate-800 flex items-center gap-1.5">

@@ -15,17 +15,19 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { ProcessRecord } from '../types/sheets';
-import { formatThousands, formatHours } from '../utils/sheetsParser';
+import { formatThousands, formatHours, inferSubdireccion } from '../utils/sheetsParser';
 
 interface DynamicCatalogSectionProps {
   records: ProcessRecord[];
   selectedGerencia: string;
+  selectedSubdireccion?: string;
   onAddRecord: (newRec: ProcessRecord) => void;
 }
 
 export function DynamicCatalogSection({
   records,
   selectedGerencia,
+  selectedSubdireccion = 'ALL',
   onAddRecord,
 }: DynamicCatalogSectionProps) {
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -59,17 +61,25 @@ export function DynamicCatalogSection({
     horasManualesTotal: 20,
   });
 
-  // Filter records
+  // Filter records by Subdirección, Gerencia, Search term, and other attributes
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
+      const sub = r.subdireccion || inferSubdireccion(r.gerencia);
+      const matchSubdireccion =
+        !selectedSubdireccion ||
+        selectedSubdireccion === 'ALL' ||
+        sub === selectedSubdireccion;
+
       const matchGerencia = selectedGerencia === 'ALL' || r.gerencia === selectedGerencia;
+
       const matchSearch =
         searchTerm === '' ||
         r.actividadProceso.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.responsableFuncional.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.procesoMacro.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.herramienta.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.areaSubArea.toLowerCase().includes(searchTerm.toLowerCase());
+        r.areaSubArea.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        sub.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchDig =
         filterDigitalizado === 'ALL' ||
@@ -83,18 +93,38 @@ export function DynamicCatalogSection({
 
       const matchTipo = filterTipoProceso === 'ALL' || r.tipoProceso === filterTipoProceso;
 
-      return matchGerencia && matchSearch && matchDig && matchAuto && matchTipo;
+      return (
+        matchSubdireccion &&
+        matchGerencia &&
+        matchSearch &&
+        matchDig &&
+        matchAuto &&
+        matchTipo
+      );
     });
-  }, [records, selectedGerencia, searchTerm, filterDigitalizado, filterAutomatizable, filterTipoProceso]);
+  }, [
+    records,
+    selectedSubdireccion,
+    selectedGerencia,
+    searchTerm,
+    filterDigitalizado,
+    filterAutomatizable,
+    filterTipoProceso,
+  ]);
 
-  // Pagination
+  // Pagination with records ordered alphabetically by Gerencia
   const totalPages = Math.ceil(filteredRecords.length / pageSize) || 1;
   const paginatedRecords = useMemo(() => {
+    const sorted = [...filteredRecords].sort((a, b) => {
+      const gCmp = (a.gerencia || '').localeCompare(b.gerencia || '', 'es', { sensitivity: 'base' });
+      if (gCmp !== 0) return gCmp;
+      return (a.procesoMacro || '').localeCompare(b.procesoMacro || '', 'es', { sensitivity: 'base' });
+    });
     const start = (page - 1) * pageSize;
-    return filteredRecords.slice(start, start + pageSize);
+    return sorted.slice(start, start + pageSize);
   }, [filteredRecords, page, pageSize]);
 
-  // Pivot Aggregations by Proceso Macro
+  // Pivot Aggregations by Proceso Macro, ordered alphabetically by Gerencia
   const pivotByMacro = useMemo(() => {
     const map = new Map<string, ProcessRecord[]>();
     for (const r of filteredRecords) {
@@ -117,9 +147,13 @@ export function DynamicCatalogSection({
         const colabs = new Set(items.map((it) => it.responsableFuncional)).size;
         const pctAuto = totalHoras > 0 ? (totalAuto / totalHoras) * 100 : 0;
 
+        const g = items[0]?.gerencia || '';
+        const sub = items[0]?.subdireccion || inferSubdireccion(g);
+
         return {
           macro,
-          gerencia: items[0]?.gerencia || '',
+          subdireccion: sub,
+          gerencia: g,
           tareasCount: items.length,
           colaboradoresCount: colabs,
           totalHoras: Number(totalHoras.toFixed(1)),
@@ -128,7 +162,11 @@ export function DynamicCatalogSection({
           pctAuto: Number(pctAuto.toFixed(1)),
         };
       })
-      .sort((a, b) => b.totalHoras - a.totalHoras);
+      .sort((a, b) => {
+        const gCmp = a.gerencia.localeCompare(b.gerencia, 'es', { sensitivity: 'base' });
+        if (gCmp !== 0) return gCmp;
+        return b.totalHoras - a.totalHoras;
+      });
   }, [filteredRecords]);
 
   const handleSaveNewRecord = (e: React.FormEvent) => {
@@ -180,8 +218,20 @@ export function DynamicCatalogSection({
                 Matriz Dinámica Pivot por Macroproceso
               </h2>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Consolidación de carga horaria, volumen de actividades y nivel de automatización agrupado por macroproceso ({formatThousands(pivotByMacro.length)} macroprocesos).
+            <p className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-1.5">
+              <span>
+                Consolidación de carga horaria, volumen de actividades y nivel de automatización agrupado por macroproceso ({formatThousands(pivotByMacro.length)} macroprocesos).
+              </span>
+              {selectedSubdireccion !== 'ALL' && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
+                  Subdirección: {selectedSubdireccion}
+                </span>
+              )}
+              {selectedGerencia !== 'ALL' && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                  Gerencia: {selectedGerencia}
+                </span>
+              )}
             </p>
           </div>
 
@@ -209,6 +259,7 @@ export function DynamicCatalogSection({
                 <thead>
                   <tr className="bg-slate-900 text-white font-semibold border-b border-slate-800">
                     <th className="py-3 px-4 font-medium tracking-wide">Proceso Macro</th>
+                    <th className="py-3 px-3 font-medium tracking-wide">Subdirección</th>
                     <th className="py-3 px-3 font-medium tracking-wide">Gerencia</th>
                     <th className="py-3 px-3 text-center font-medium tracking-wide">Actividades</th>
                     <th className="py-3 px-3 text-center font-medium tracking-wide">Colaboradores</th>
@@ -224,6 +275,11 @@ export function DynamicCatalogSection({
                   {pivotByMacro.map((item) => (
                     <tr key={item.macro} className="hover:bg-slate-50">
                       <td className="py-3 px-4 font-bold text-slate-900">{item.macro}</td>
+                      <td className="py-3 px-3 text-slate-700">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200/80">
+                          {item.subdireccion}
+                        </span>
+                      </td>
                       <td className="py-3 px-3 text-slate-700">{item.gerencia}</td>
                       <td className="py-3 px-3 text-center font-mono font-bold text-blue-950">
                         {formatThousands(item.tareasCount)}
@@ -323,6 +379,16 @@ export function DynamicCatalogSection({
 
           {/* Quick Filters */}
           <div className="flex flex-wrap items-center gap-2">
+            {selectedSubdireccion !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-indigo-50 text-indigo-800 border border-indigo-200 text-xs font-semibold">
+                Subdirección: {selectedSubdireccion}
+              </span>
+            )}
+            {selectedGerencia !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-50 text-blue-800 border border-blue-200 text-xs font-semibold">
+                Gerencia: {selectedGerencia}
+              </span>
+            )}
             <div className="flex items-center gap-1.5">
               <span className="text-slate-500 font-semibold">¿Digitalizado?:</span>
               <select
@@ -381,6 +447,7 @@ export function DynamicCatalogSection({
                 <thead>
                   <tr className="bg-slate-900 text-white font-semibold border-b border-slate-800 whitespace-nowrap">
                     <th className="py-2.5 px-3">#</th>
+                    <th className="py-2.5 px-3">Subdirección</th>
                     <th className="py-2.5 px-3">Gerencia</th>
                     <th className="py-2.5 px-3">Area / Sub Area</th>
                     <th className="py-2.5 px-3">TIPO DE PROCESO</th>
@@ -401,7 +468,7 @@ export function DynamicCatalogSection({
                 <tbody className="divide-y divide-slate-200 text-[11px]">
                   {paginatedRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={16} className="py-8 text-center text-slate-500">
+                      <td colSpan={17} className="py-8 text-center text-slate-500">
                         No se encontraron actividades con los filtros actuales.
                       </td>
                     </tr>
@@ -411,10 +478,16 @@ export function DynamicCatalogSection({
                       const hTot = r.horasMensualesTotal || r.horasMensualesActividad || 0;
                       const hAuto = r.horasMensualesAutomatizadas || 0;
                       const hMan = r.horasManualesTotal || r.horasManuales || 0;
+                      const subName = r.subdireccion || inferSubdireccion(r.gerencia);
 
                       return (
                         <tr key={r.id || idx} className="hover:bg-slate-50 transition-colors">
                           <td className="py-2 px-3 text-slate-400 font-mono">{rowNum}</td>
+                          <td className="py-2 px-3 text-slate-700 whitespace-nowrap">
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200/80">
+                              {subName}
+                            </span>
+                          </td>
                           <td className="py-2 px-3 font-semibold text-slate-900 whitespace-nowrap">
                             {r.gerencia}
                           </td>
