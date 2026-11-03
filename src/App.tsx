@@ -18,6 +18,9 @@ import {
   Lock,
   ArrowRight,
   Filter,
+  LayoutDashboard,
+  TableProperties,
+  CalendarCheck,
 } from 'lucide-react';
 import { INITIAL_RECORDS } from './data/initialData';
 import { ProcessRecord, SheetSyncConfig } from './types/sheets';
@@ -43,6 +46,8 @@ import { GerenciaPivotSection } from './components/GerenciaPivotSection';
 import { ColaboradoresByGerenciaSection } from './components/ColaboradoresByGerenciaSection';
 import { SubdireccionSummarySection } from './components/SubdireccionSummarySection';
 import { DynamicCatalogSection } from './components/DynamicCatalogSection';
+import { UniqueActivitiesStatusSheet } from './components/UniqueActivitiesStatusSheet';
+import { WorkPlanSimulationSheet } from './components/WorkPlanSimulationSheet';
 
 const DEFAULT_GERENCIA_SHEETS = [
   'Activo Fijo',
@@ -96,6 +101,7 @@ export default function App() {
     }
   });
 
+  const [activeSheet, setActiveSheet] = useState<'hoja1' | 'hoja2' | 'hoja3'>('hoja1');
   const [selectedSubdireccion, setSelectedSubdireccion] = useState<string>('ALL');
   const [selectedGerencia, setSelectedGerencia] = useState<string>('ALL');
   const [showWelcomeSyncModal, setShowWelcomeSyncModal] = useState<boolean>(false);
@@ -169,6 +175,14 @@ export default function App() {
         a.localeCompare(b, 'es', { sensitivity: 'base' })
       ),
     [allGerenciaSummaries]
+  );
+
+  const fullGerenciaNames = useMemo(
+    () =>
+      Array.from(new Set(records.map((r) => r.gerencia).filter(Boolean))).sort((a, b) =>
+        a.localeCompare(b, 'es', { sensitivity: 'base' })
+      ),
+    [records]
   );
 
   // Global / Scoped KPI calculations
@@ -399,26 +413,44 @@ export default function App() {
           Tablero Inventario de Procesos
         </a>
 
-        {/* Zone 2: Navigation links */}
-        <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-slate-300">
-          <a
-            href="#resumen-subdirecciones"
-            className="hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
+        {/* Zone 2: Navigation links & Sheet tabs */}
+        <nav className="hidden md:flex items-center gap-2 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => setActiveSheet('hoja1')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors font-semibold cursor-pointer ${
+              activeSheet === 'hoja1'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800'
+            }`}
           >
-            Subdirecciones
-          </a>
-          <a
-            href="#resumen-gerencial"
-            className="hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            <span>Hoja 1: Resumen</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSheet('hoja2')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors font-semibold cursor-pointer ${
+              activeSheet === 'hoja2'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800'
+            }`}
           >
-            Resumen Gerencial
-          </a>
-          <a
-            href="#carga-colaborador"
-            className="hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
+            <TableProperties className="w-3.5 h-3.5" />
+            <span>Hoja 2: Estatus Únicas</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSheet('hoja3')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors font-semibold cursor-pointer ${
+              activeSheet === 'hoja3'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800'
+            }`}
           >
-            Carga por Colaborador
-          </a>
+            <CalendarCheck className="w-3.5 h-3.5" />
+            <span>Hoja 3: Plan de Trabajo</span>
+          </button>
         </nav>
 
         {/* Zone 3: 1 primary action */}
@@ -492,8 +524,65 @@ export default function App() {
           </div>
         )}
 
-        {/* Context & Connection Bar */}
-        <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-xs">
+        {/* Primary Sheet Selector Bar */}
+        <div className="bg-white border border-slate-200/90 rounded-xl p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveSheet('hoja1')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                activeSheet === 'hoja1'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              <span>Hoja 1: Resumen y Carga Gerencial</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveSheet('hoja2')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                activeSheet === 'hoja2'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              <TableProperties className="w-4 h-4" />
+              <span>Hoja 2: Estatus de Actividades Únicas</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveSheet('hoja3')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                activeSheet === 'hoja3'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              <CalendarCheck className="w-4 h-4" />
+              <span>Hoja 3: Plan de Trabajo y Simulación</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-500 font-medium px-2">
+            <span className="hidden sm:inline">Pestaña activa:</span>
+            <span className="font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+              {activeSheet === 'hoja1'
+                ? 'Hoja 1 · Inventario Consolidado'
+                : activeSheet === 'hoja2'
+                ? 'Hoja 2 · Auditoría y Estatus'
+                : 'Hoja 3 · Plan de Trabajo y Simulación'}
+            </span>
+          </div>
+        </div>
+
+        {activeSheet === 'hoja1' && (
+          <>
+            {/* Context & Connection Bar */}
+            <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-xs">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
               <span>Estructura Oficial Multi-Gerencia</span>
@@ -827,7 +916,25 @@ export default function App() {
           selectedGerencia={selectedGerencia}
           onAddRecord={handleAddSingleRecord}
         />
-      </main>
+      </>
+    )}
+
+    {activeSheet === 'hoja2' && (
+      <UniqueActivitiesStatusSheet
+        records={records}
+        selectedGerencia={selectedGerencia}
+        onSelectGerencia={setSelectedGerencia}
+        allGerencias={fullGerenciaNames}
+      />
+    )}
+
+    {activeSheet === 'hoja3' && (
+      <WorkPlanSimulationSheet
+        records={records}
+        allGerencias={fullGerenciaNames}
+      />
+    )}
+  </main>
 
       {/* Quiet Corporate Footer */}
       <footer className="mt-12 border-t border-slate-200 bg-white px-6 py-4">

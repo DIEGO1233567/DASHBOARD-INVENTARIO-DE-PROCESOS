@@ -1143,3 +1143,6 @@ export async function exportExecutiveSummaryXlsx(
   anchor.click();
   window.URL.revokeObjectURL(url);
 }
+
+export { exportUniqueActivitiesStatusXlsx } from './statusExport';
+
