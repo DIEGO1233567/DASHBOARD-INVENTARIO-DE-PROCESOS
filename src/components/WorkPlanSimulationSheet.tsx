@@ -222,7 +222,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
   const [anualRequerimientos, setAnualRequerimientos] = useState<number>(10); // 10/año
   const [anualMantenimientos, setAnualMantenimientos] = useState<number>(25); // 25/año
   const [levelingTargetPct, setLevelingTargetPct] = useState<number>(80); // Meta reglamentaria de nivelación por gerencia (80%)
-  const [showLevelingBreakdown, setShowLevelingBreakdown] = useState<boolean>(true);
+  const [showLevelingBreakdown, setShowLevelingBreakdown] = useState<boolean>(false); // Oculta por default para desplegar bajo demanda
   const [teamMembers, setTeamMembers] = useState<TeamMemberDraft[]>(INITIAL_TEAM);
   const [manualReassignments, setManualReassignments] = useState<Record<string, string>>({});
   const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -1012,6 +1012,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
     setLevelingTargetPct(80);
     setAnualRequerimientos(10);
     setAnualMantenimientos(25);
+    setShowLevelingBreakdown(false);
     setTeamMembers(INITIAL_TEAM);
     setManualReassignments({});
   };
