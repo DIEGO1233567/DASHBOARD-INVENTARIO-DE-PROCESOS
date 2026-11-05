@@ -34,6 +34,10 @@ import {
   SlidersHorizontal,
   Target,
   Award,
+  Plus,
+  Minus,
+  FileText,
+  Wrench,
 } from 'lucide-react';
 import { ProcessRecord } from '../types/sheets';
 import {
@@ -394,7 +398,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
     }> = [];
 
     for (let i = 1; i <= totalReqs; i++) {
-      const year = Math.min(horizonYears, Math.floor((i - 1) / anualRequerimientos) + 1);
+      const year = Math.min(horizonYears, Math.floor((i - 1) / Math.max(1, anualRequerimientos)) + 1);
       reqs.push({
         id: `OP-REQ-${i}`,
         actividadProceso: `Atención a Requerimiento Funcional Operativo #${i} (Eficiencia)`,
@@ -421,7 +425,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
     }> = [];
 
     for (let i = 1; i <= totalMants; i++) {
-      const year = Math.min(horizonYears, Math.floor((i - 1) / anualMantenimientos) + 1);
+      const year = Math.min(horizonYears, Math.floor((i - 1) / Math.max(1, anualMantenimientos)) + 1);
       mants.push({
         id: `OP-MANT-${i}`,
         actividadProceso: `Mantenimiento Preventivo y Correctivo de Solución #${i} (Eficiencia)`,
@@ -1216,9 +1220,9 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
         </div>
 
         {/* ------------------------------------------------------------- */}
-        {/* BARRA DE PARÁMETROS DINÁMICOS DEL ESCENARIO (6 CONTROLES INDEPENDIENTES) */}
+        {/* BARRA DE PARÁMETROS DINÁMICOS DEL ESCENARIO (8 CONTROLES INDEPENDIENTES) */}
         {/* ------------------------------------------------------------- */}
-        <div className="relative z-10 mt-6 pt-6 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+        <div className="relative z-10 mt-6 pt-6 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           {/* Parámetro 1: Plazo en Años Calendario */}
           <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
             <div className="space-y-1">
@@ -1502,6 +1506,118 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               <span>90%</span>
             </div>
           </div>
+
+          {/* Parámetro 7: Requerimientos Operativos Anuales - INDEPENDIENTE */}
+          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-300 flex items-center gap-1.5" title="Requerimientos operativos anuales para Eficiencia de Procesos (30 h/m c/u)">
+                  <FileText className="w-3.5 h-3.5 text-violet-400" />
+                  Requerimientos:
+                </span>
+                <span className="font-mono font-black text-violet-300 text-sm">
+                  {anualRequerimientos} / año
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-400 flex items-center justify-between">
+                <span>Total {horizonYears} {horizonYears === 1 ? 'año' : 'años'}:</span>
+                <strong className="text-violet-200 font-mono font-bold">
+                  {anualRequerimientos * horizonYears} reqs ({formatThousands(anualRequerimientos * horizonYears * 30)} h/m)
+                </strong>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAnualRequerimientos((prev) => Math.max(0, prev - 1))}
+                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs transition-colors cursor-pointer shrink-0"
+                  title="Disminuir 1 requerimiento/año"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={40}
+                  step={1}
+                  value={anualRequerimientos}
+                  onChange={(e) => setAnualRequerimientos(Number(e.target.value))}
+                  className="w-full accent-violet-500 cursor-pointer"
+                />
+                <button
+                  type="button"
+                  onClick={() => setAnualRequerimientos((prev) => Math.min(50, prev + 1))}
+                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs transition-colors cursor-pointer shrink-0"
+                  title="Aumentar 1 requerimiento/año"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                <span>0 req</span>
+                <span className="text-violet-300 font-bold">10/año (Base)</span>
+                <span>40 req</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Parámetro 8: Mantenimientos Operativos Anuales - INDEPENDIENTE */}
+          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-300 flex items-center gap-1.5" title="Mantenimientos preventivos y correctivos anuales para Eficiencia de Procesos (16 h/m c/u)">
+                  <Wrench className="w-3.5 h-3.5 text-amber-400" />
+                  Mantenimientos:
+                </span>
+                <span className="font-mono font-black text-amber-300 text-sm">
+                  {anualMantenimientos} / año
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-400 flex items-center justify-between">
+                <span>Total {horizonYears} {horizonYears === 1 ? 'año' : 'años'}:</span>
+                <strong className="text-amber-200 font-mono font-bold">
+                  {anualMantenimientos * horizonYears} mants ({formatThousands(anualMantenimientos * horizonYears * 16)} h/m)
+                </strong>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAnualMantenimientos((prev) => Math.max(0, prev - 1))}
+                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs transition-colors cursor-pointer shrink-0"
+                  title="Disminuir 1 mantenimiento/año"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={60}
+                  step={1}
+                  value={anualMantenimientos}
+                  onChange={(e) => setAnualMantenimientos(Number(e.target.value))}
+                  className="w-full accent-amber-500 cursor-pointer"
+                />
+                <button
+                  type="button"
+                  onClick={() => setAnualMantenimientos((prev) => Math.min(100, prev + 1))}
+                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs transition-colors cursor-pointer shrink-0"
+                  title="Aumentar 1 mantenimiento/año"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                <span>0 mant</span>
+                <span className="text-amber-300 font-bold">25/año (Base)</span>
+                <span>60 mant</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Botones de gestión rápida de vacantes */}
@@ -1656,7 +1772,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               • No Dig No Auto: <strong className="text-slate-800">{candidateActivities.noDigNoAutoSelected.length}</strong> ({includeNoAutoActivities ? `${pctNoAutoThreshold}% s/total Hoja 2 (${totalHoja2Activities} act)` : 'Desactivadas 0'})
             </div>
             <div>
-              • Reqs & Mants: <strong className="text-slate-800">{operationalActivities.totalOpsCount}</strong> en {horizonYears} años ({BASE_PLAN_START_YEAR}-{toCalendarYear(horizonYears)})
+              • Reqs & Mants: <strong className="text-slate-800">{operationalActivities.totalOpsCount}</strong> ({operationalActivities.reqs.length} reqs / {operationalActivities.mants.length} mants en {horizonYears} {horizonYears === 1 ? 'año' : 'años'})
             </div>
           </div>
         </div>
