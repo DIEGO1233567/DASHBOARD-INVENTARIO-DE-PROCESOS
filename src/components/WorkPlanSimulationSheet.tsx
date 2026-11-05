@@ -27,16 +27,41 @@ import {
   Building2,
   ArrowRight,
   ExternalLink,
+  X,
+  ArrowUpDown,
+  CheckSquare,
+  Square,
+  SlidersHorizontal,
+  Target,
+  Award,
 } from 'lucide-react';
 import { ProcessRecord } from '../types/sheets';
-import { computeUniqueActivitiesStatusList, UniqueActivityItem } from '../utils/activityStatusParser';
-import { formatHours, formatThousands } from '../utils/sheetsParser';
+import {
+  computeActivitiesByGerenciaAndStatus,
+  computeUniqueActivitiesStatusList,
+  UniqueActivityItem,
+  ActivityByGerenciaAndStatusItem,
+} from '../utils/activityStatusParser';
+import { computeGerenciaSummaries, formatHours, formatThousands } from '../utils/sheetsParser';
 import {
   PlanCollaborator,
   PlanActivity,
   PlanScenarioConfig,
   exportWorkPlanSimulationXlsx,
 } from '../utils/workPlanExport';
+
+export const BASE_PLAN_START_YEAR = 2027;
+
+/**
+ * Maps sequential plan year index (1, 2, 3...) to calendar years (2027, 2028, 2029...)
+ */
+export function toCalendarYear(assignedYearNum: number): number {
+  return 2026 + assignedYearNum;
+}
+
+export function toCalendarYearLabel(assignedYearNum: number): string {
+  return `${toCalendarYear(assignedYearNum)}`;
+}
 
 interface WorkPlanSimulationSheetProps {
   records: ProcessRecord[];
@@ -188,20 +213,31 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
   const [jefeCapacityRate, setJefeCapacityRate] = useState<number>(1.0); // max 1/mes
   const [becarioCapacityRate, setBecarioCapacityRate] = useState<number>(1.0); // max 1/mes
   const [especialistaCapacityRate, setEspecialistaCapacityRate] = useState<number>(1.5); // act/mes
-  const [pctNoAutoThreshold, setPctNoAutoThreshold] = useState<number>(20); // 20% default
+  const [includeNoAutoActivities, setIncludeNoAutoActivities] = useState<boolean>(true); // Opción dinámica para activar / desactivar
+  const [pctNoAutoThreshold, setPctNoAutoThreshold] = useState<number>(20); // 20% default sobre total Hoja 2
   const [anualRequerimientos, setAnualRequerimientos] = useState<number>(10); // 10/año
   const [anualMantenimientos, setAnualMantenimientos] = useState<number>(25); // 25/año
+  const [levelingTargetPct, setLevelingTargetPct] = useState<number>(80); // Meta reglamentaria de nivelación por gerencia (80%)
+  const [showLevelingBreakdown, setShowLevelingBreakdown] = useState<boolean>(true);
   const [teamMembers, setTeamMembers] = useState<TeamMemberDraft[]>(INITIAL_TEAM);
   const [manualReassignments, setManualReassignments] = useState<Record<string, string>>({});
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [showScenarioDrawer, setShowScenarioDrawer] = useState<boolean>(false);
 
-  // Filtros de tabla detallada
+  // Filtros de tabla tipo Excel en encabezados
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [filterGerencia, setFilterGerencia] = useState<string>('ALL');
-  const [filterColaborador, setFilterColaborador] = useState<string>('ALL');
-  const [filterTipo, setFilterTipo] = useState<string>('ALL');
-  const [filterYear, setFilterYear] = useState<number | 'ALL'>('ALL');
+  const [openHeaderFilter, setOpenHeaderFilter] = useState<string | null>(null);
+  const [filterYears, setFilterYears] = useState<number[]>([]); // Vacío = Todos los años (2027, 2028, etc.)
+  const [filterGerencias, setFilterGerencias] = useState<string[]>([]); // Vacío = Todas
+  const [filterTipos, setFilterTipos] = useState<string[]>([]); // Vacío = Todos
+  const [filterColaboradores, setFilterColaboradores] = useState<string[]>([]); // Vacío = Todos
+  const [filterColabRoles, setFilterColabRoles] = useState<string[]>([]); // Vacío = Todos
+  const [filterHoursRange, setFilterHoursRange] = useState<'ALL' | 'POR_DEFINIR' | 'CON_HORAS' | 'GT_30' | 'GT_60'>('ALL');
+  const [filterSortPrio, setFilterSortPrio] = useState<'ASC' | 'DESC'>('ASC');
+  const [columnSearchGerencia, setColumnSearchGerencia] = useState<string>('');
+  const [columnSearchColab, setColumnSearchColab] = useState<string>('');
+  const [pageSize, setPageSize] = useState<number | 'ALL'>(100);
+
   const [activeTab, setActiveTab] = useState<'colaboradores' | 'actividades' | 'cronograma'>('colaboradores');
 
   // Estado para desplegar actividades asignadas por colaborador en la matriz
@@ -229,50 +265,116 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
 
   const totalMonths = horizonYears * 12;
 
-  // --------------------------------------------------------------------------
-  // 1. OBTENCIÓN Y FILTRADO DE ACTIVIDADES ÚNICAS (LÓGICA HOJA 2)
-  // --------------------------------------------------------------------------
-  const { items: allUniqueActivities } = useMemo(() => {
-    return computeUniqueActivitiesStatusList(records, 'ALL');
+  // Resumen oficial de Gerencias de la Hoja 1 (para obtener el % de automatización inicial de cada gerencia)
+  const gerenciaSummaries = useMemo(() => {
+    return computeGerenciaSummaries(records);
   }, [records]);
+
+  // --------------------------------------------------------------------------
+  // 1. OBTENCIÓN Y DETERMINACIÓN EXACTA DE ACTIVIDADES SEGÚN HOJA 2
+  // --------------------------------------------------------------------------
+  const hoja2StatusAnalysis = useMemo(() => {
+    return computeActivitiesByGerenciaAndStatus(records, 'ALL');
+  }, [records]);
+
+  // Base seleccionable para el cálculo del 20% de actividades totales de la Hoja 2:
+  // - 'STATUS_TOTAL': Total actividades determinadas por estatus en Hoja 2 (métrica oficial Hoja 2)
+  // - 'RECORDS_TOTAL': Total registros de actividades del inventario evaluado (ej. 1,990 actividades)
+  // - 'BASE_UNIQUE': Total actividades base únicas por gerencia
+  const [hoja2CalculationBase, setHoja2CalculationBase] = useState<'STATUS_TOTAL' | 'RECORDS_TOTAL' | 'BASE_UNIQUE'>('STATUS_TOTAL');
+
+  // Total de actividades de referencia de la Hoja 2
+  const totalHoja2Activities = useMemo(() => {
+    if (hoja2CalculationBase === 'RECORDS_TOTAL') {
+      return records.length;
+    }
+    if (hoja2CalculationBase === 'BASE_UNIQUE') {
+      return hoja2StatusAnalysis.totalActividadesBase;
+    }
+    return hoja2StatusAnalysis.totalActividadesPorEstatus;
+  }, [hoja2CalculationBase, hoja2StatusAnalysis, records.length]);
 
   // Selección de actividades candidatas
   const candidateActivities = useMemo(() => {
-    // Excluir aquellas que ya están digitalizadas
-    const nonDigitalized = allUniqueActivities.filter((act) => {
-      const hasDigSi = act.variants.some((v) => v.digitalizado === 'SÍ');
-      return !hasDigSi;
-    });
-
-    // 1. No digitalizadas SÍ automatizables (100% seleccionadas, ordenadas por horas manuales desc)
-    const noDigSiAuto = nonDigitalized
-      .filter((act) => act.variants.some((v) => v.esAutomatizable === 'SÍ'))
+    // 1. No digitalizadas SÍ automatizables (100% de las identificadas en la Hoja 2 - Cuadrante NO_SI)
+    // Se ordenan por horas manuales mensuales descendente (mayor impacto primero)
+    const noDigSiAuto = hoja2StatusAnalysis.items
+      .filter((item) => item.statusComboKey === 'NO_SI')
+      .map((item) => ({
+        id: item.id,
+        actividadProceso: item.actividadProceso,
+        gerencia: item.gerencia,
+        horasManuales: item.horasManuales,
+        horasTotales: item.horasTotales,
+        colaboradores: item.colaboradores,
+        isNomina: item.gerencia.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('nomina'),
+      }))
       .sort((a, b) => b.horasManuales - a.horasManuales || b.horasTotales - a.horasTotales);
 
-    // 2. No digitalizadas NO automatizables (ordenadas por horas manuales desc)
-    const noDigNoAutoPool = nonDigitalized
-      .filter((act) => act.variants.every((v) => v.esAutomatizable === 'NO'))
+    // 2. Pool de No digitalizadas NO automatizables (identificadas en la Hoja 2 - Cuadrante NO_NO)
+    const noDigNoAutoPool = hoja2StatusAnalysis.items
+      .filter((item) => item.statusComboKey === 'NO_NO')
+      .map((item) => ({
+        id: item.id,
+        actividadProceso: item.actividadProceso,
+        gerencia: item.gerencia,
+        horasManuales: item.horasManuales,
+        horasTotales: item.horasTotales,
+        colaboradores: item.colaboradores,
+        isNomina: item.gerencia.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('nomina'),
+      }))
       .sort((a, b) => b.horasManuales - a.horasManuales || b.horasTotales - a.horasTotales);
 
-    // Cantidad a tomar de No/No: debe alcanzarse el pctNoAutoThreshold% (ej. 20%) respecto a las ACTIVIDADES TOTALES
-    // de la Hoja 2 (ej. si hay 1,990 actividades totales en la Hoja 2, se toman las 398 de mayor impacto en horas)
-    const targetNoNoCount = Math.min(
-      noDigNoAutoPool.length,
-      Math.max(
-        0,
-        Math.round((allUniqueActivities.length * pctNoAutoThreshold) / 100)
-      )
-    );
+    // Cantidad exacta a tomar de No/No: debe representar el pctNoAutoThreshold% (ej. 20%)
+    // de las ACTIVIDADES TOTALES DETERMINADAS DE LA HOJA 2
+    const targetNoNoCount = includeNoAutoActivities
+      ? Math.max(0, Math.round((totalHoja2Activities * pctNoAutoThreshold) / 100))
+      : 0;
 
-    const noDigNoAutoSelected = noDigNoAutoPool.slice(0, targetNoNoCount);
+    // Generar exactamente targetNoNoCount actividades [Por Definir]
+    const noDigNoAutoSelected: Array<{
+      id: string;
+      actividadProceso: string;
+      gerencia: string;
+      horasManuales: number;
+      horasTotales: number;
+      isNomina: boolean;
+    }> = [];
+
+    for (let i = 0; i < targetNoNoCount; i++) {
+      if (i < noDigNoAutoPool.length) {
+        const item = noDigNoAutoPool[i];
+        noDigNoAutoSelected.push({
+          id: item.id,
+          actividadProceso: item.actividadProceso,
+          gerencia: item.gerencia,
+          horasManuales: item.horasManuales,
+          horasTotales: item.horasTotales,
+          isNomina: item.isNomina,
+        });
+      } else {
+        const gerencia = allGerencias.length > 0 ? allGerencias[i % allGerencias.length] : 'General';
+        const isNomina = gerencia.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('nomina');
+        noDigNoAutoSelected.push({
+          id: `POR_DEFINIR_EXTRA_${i + 1}`,
+          actividadProceso: `Actividad No Dig. / No Auto. #${i + 1}`,
+          gerencia,
+          horasManuales: 0,
+          horasTotales: 0,
+          isNomina,
+        });
+      }
+    }
 
     return {
       noDigSiAuto,
       noDigNoAutoSelected,
       noDigNoAutoPool,
       totalInventoryCandidates: noDigSiAuto.length + noDigNoAutoSelected.length,
+      totalHoja2Activities,
+      targetNoNoCount,
     };
-  }, [allUniqueActivities, pctNoAutoThreshold]);
+  }, [hoja2StatusAnalysis, totalHoja2Activities, pctNoAutoThreshold, includeNoAutoActivities, allGerencias]);
 
   // Actividades operativas fijas (Requerimientos y Mantenimientos proyectados para el horizonte)
   const operationalActivities = useMemo(() => {
@@ -371,7 +473,132 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
     // Identificar a Daniel García Velázquez (ÚNICO autorizado para Nómina)
     const danielCollab = collabs.find((c) => c.isNominaExclusive) || collabs[0];
 
-    // Preparar lista unificada de actividades ordenadas por prioridad de impacto
+    // --------------------------------------------------------------------------
+    // REGLA SOLICITADA DE PRIORIZACIÓN POR NIVELACIÓN DE GERENCIAS (META 80%):
+    // 1. Obtener el % de automatización inicial de cada gerencia (de la Hoja 1).
+    // 2. Dar prioridad a las gerencias con menor porcentaje de automatización.
+    // 3. Dentro de cada gerencia, ordenar sus actividades de mayor a menor horas.
+    // 4. Una vez que el % de automatización simulado de la gerencia alcance el 80%
+    //    (o agote sus actividades automatizables), avanzar a las gerencias siguientes.
+    // 5. Las actividades restantes de gerencias que superaron o iniciaron con >= 80%
+    //    se atienden en la fase de consolidación.
+    // --------------------------------------------------------------------------
+
+    // Mapa de estadísticas de cada gerencia tomadas de la Hoja 1
+    const gerenciaStatsMap = new Map<string, {
+      gerencia: string;
+      initialPct: number;
+      totalHours: number;
+      autoHours: number;
+      simAutoHours: number;
+    }>();
+
+    for (const s of gerenciaSummaries) {
+      const gNorm = s.gerencia.trim();
+      gerenciaStatsMap.set(gNorm, {
+        gerencia: gNorm,
+        initialPct: s.pctAutomatizado,
+        totalHours: s.horasTotales,
+        autoHours: s.horasAutomatizadas,
+        simAutoHours: s.horasAutomatizadas,
+      });
+    }
+
+    const getGerenciaInitialPct = (gName: string) => {
+      const stat = gerenciaStatsMap.get(gName.trim());
+      return stat ? stat.initialPct : 50;
+    };
+
+    // Agrupar No Digitalizadas Sí Automatizables por Gerencia
+    // y ordenar dentro de cada gerencia de mayor a menor horas
+    const siAutoByGerencia = new Map<string, typeof candidateActivities.noDigSiAuto>();
+    for (const act of candidateActivities.noDigSiAuto) {
+      const g = act.gerencia.trim();
+      if (!siAutoByGerencia.has(g)) {
+        siAutoByGerencia.set(g, []);
+      }
+      siAutoByGerencia.get(g)!.push(act);
+    }
+    for (const acts of siAutoByGerencia.values()) {
+      acts.sort((a, b) => b.horasManuales - a.horasManuales || b.horasTotales - a.horasTotales);
+    }
+
+    // Gerencias presentes en las actividades, ordenadas por menor automatización inicial (prioridad a las más rezagadas)
+    const sortedGerenciaNames = Array.from(siAutoByGerencia.keys()).sort((a, b) => {
+      return getGerenciaInitialPct(a) - getGerenciaInitialPct(b);
+    });
+
+    // Clasificar las actividades de cada gerencia identificando cuáles pertenecen al Tier 1 (Nivelación < 80%)
+    // y cuáles al Tier 2 (Consolidación >= 80%).
+    type ClassifiedItem = {
+      act: (typeof candidateActivities.noDigSiAuto)[0];
+      gerenciaInitialPct: number;
+      gerenciaSimPct: number;
+      levelingTier: 'NIVELACION_SUB_80' | 'CONSOLIDACION_SUPER_80';
+    };
+
+    const classifiedByGerencia = new Map<string, ClassifiedItem[]>();
+
+    for (const gName of sortedGerenciaNames) {
+      const acts = siAutoByGerencia.get(gName) || [];
+      const gStat = gerenciaStatsMap.get(gName) || {
+        gerencia: gName,
+        initialPct: 50,
+        totalHours: acts.reduce((acc, a) => acc + a.horasTotales, 0) || 100,
+        autoHours: 0,
+        simAutoHours: 0,
+      };
+
+      const classifiedList: ClassifiedItem[] = [];
+
+      for (const act of acts) {
+        const currentSimPct = gStat.totalHours > 0
+          ? (gStat.simAutoHours / gStat.totalHours) * 100
+          : 100;
+
+        const isSub80 = currentSimPct < levelingTargetPct;
+        classifiedList.push({
+          act,
+          gerenciaInitialPct: gStat.initialPct,
+          gerenciaSimPct: currentSimPct,
+          levelingTier: isSub80 ? 'NIVELACION_SUB_80' : 'CONSOLIDACION_SUPER_80',
+        });
+        gStat.simAutoHours += act.horasManuales;
+      }
+
+      classifiedByGerencia.set(gName, classifiedList);
+    }
+
+    // INTERLEAVING CONCURRENTE MULTIGERENCIA (Prioridad Nivelación + Avance Simultáneo)
+    // En lugar de concentrar todas las actividades de una sola gerencia en un bloque rígido,
+    // se intercalan rondas entre todas las gerencias:
+    // - Las gerencias en Nivelación (< 80%) aportan 2 actividades de mayor impacto por ronda.
+    // - Las gerencias en Consolidación (≥ 80%) aportan 1 actividad de mayor impacto por ronda.
+    // Esto garantiza que:
+    // 1. Todas las gerencias se atiendan simultáneamente desde el Año 1 (2027) sin dejar rezagada a ninguna.
+    // 2. Las gerencias con menor porcentaje (< 80%) reciban mayor aceleración de impacto hasta nivelarse.
+    const interleavedSiAuto: ClassifiedItem[] = [];
+    const queues = new Map<string, ClassifiedItem[]>();
+    for (const gName of sortedGerenciaNames) {
+      queues.set(gName, [...(classifiedByGerencia.get(gName) || [])]);
+    }
+
+    let hasRemainingSiAuto = true;
+    while (hasRemainingSiAuto) {
+      hasRemainingSiAuto = false;
+      for (const gName of sortedGerenciaNames) {
+        const q = queues.get(gName)!;
+        if (q.length > 0) {
+          hasRemainingSiAuto = true;
+          const takeCount = q[0].levelingTier === 'NIVELACION_SUB_80' ? 2 : 1;
+          for (let k = 0; k < takeCount && q.length > 0; k++) {
+            interleavedSiAuto.push(q.shift()!);
+          }
+        }
+      }
+    }
+
+    // Preparar lista unificada de actividades ordenadas por prioridad de impacto y nivelación
     const unifiedActivities: Array<{
       id: string;
       actividadProceso: string;
@@ -383,41 +610,82 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
       isNomina: boolean;
       assignedYear: number;
       prioridad: number;
+      isPendingDefinition?: boolean;
+      gerenciaInitialPct?: number;
+      gerenciaSimPct?: number;
+      levelingTier?: string;
     }> = [];
 
     let currentPriority = 1;
 
-    // 1. Agregar No Digitalizadas Sí Automatizables (100%)
-    for (const item of candidateActivities.noDigSiAuto) {
-      const isNomina = item.gerencia.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('nomina');
+    // 1. Agregar No Digitalizadas Sí Automatizables (Interleaving Concurrente Multigerencia)
+    for (const item of interleavedSiAuto) {
+      const act = item.act;
+      const isNomina = act.gerencia.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('nomina');
       unifiedActivities.push({
-        id: item.id,
-        actividadProceso: item.actividadProceso,
-        gerencia: item.gerencia,
+        id: act.id,
+        actividadProceso: act.actividadProceso,
+        gerencia: act.gerencia,
         tipo: 'NO_DIG_SI_AUTO',
-        tipoLabel: 'No Digitalizada · Sí Automatizable (100%)',
-        horasManualesMensuales: item.horasManuales,
-        horasTotalesMensuales: item.horasTotales,
+        tipoLabel: item.levelingTier === 'NIVELACION_SUB_80'
+          ? `No Dig. Sí Auto · Nivelación (< ${levelingTargetPct}%)`
+          : `No Dig. Sí Auto · Consolidación (≥ ${levelingTargetPct}%)`,
+        horasManualesMensuales: act.horasManuales,
+        horasTotalesMensuales: act.horasTotales,
         isNomina,
         assignedYear: 1, // Se calculará con base en el cronograma
         prioridad: currentPriority++,
+        gerenciaInitialPct: item.gerenciaInitialPct,
+        gerenciaSimPct: item.gerenciaSimPct,
+        levelingTier: item.levelingTier,
       });
     }
 
-    // 2. Agregar Top No Digitalizadas No Automatizables seleccionadas
-    for (const item of candidateActivities.noDigNoAutoSelected) {
+    // 2. Interleaving de No Digitalizadas No Automatizables seleccionadas como [Por Definir]
+    const noAutoQueues = new Map<string, typeof candidateActivities.noDigNoAutoSelected>();
+    for (const gName of sortedGerenciaNames) {
+      noAutoQueues.set(gName, []);
+    }
+    for (const act of candidateActivities.noDigNoAutoSelected) {
+      if (!noAutoQueues.has(act.gerencia)) {
+        noAutoQueues.set(act.gerencia, []);
+      }
+      noAutoQueues.get(act.gerencia)!.push(act);
+    }
+    for (const acts of noAutoQueues.values()) {
+      acts.sort((a, b) => b.horasManuales - a.horasManuales);
+    }
+
+    const interleavedNoAuto: typeof candidateActivities.noDigNoAutoSelected = [];
+    let hasRemainingNoAuto = true;
+    while (hasRemainingNoAuto) {
+      hasRemainingNoAuto = false;
+      for (const gName of sortedGerenciaNames) {
+        const q = noAutoQueues.get(gName);
+        if (q && q.length > 0) {
+          hasRemainingNoAuto = true;
+          interleavedNoAuto.push(q.shift()!);
+        }
+      }
+    }
+
+    for (let i = 0; i < interleavedNoAuto.length; i++) {
+      const item = interleavedNoAuto[i];
       const isNomina = item.gerencia.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('nomina');
       unifiedActivities.push({
-        id: item.id,
-        actividadProceso: item.actividadProceso,
+        id: `POR_DEFINIR_${item.id}`,
+        actividadProceso: `[Por Definir] Actividad No Dig. / No Auto. #${i + 1} (${item.gerencia})`,
         gerencia: item.gerencia,
         tipo: 'NO_DIG_NO_AUTO',
-        tipoLabel: `No Digitalizada · No Automatizable (${pctNoAutoThreshold}% s/total Hoja 2)`,
-        horasManualesMensuales: item.horasManuales,
-        horasTotalesMensuales: item.horasTotales,
+        tipoLabel: `No Dig. / No Auto. (Por definir · Evaluación ${pctNoAutoThreshold}%)`,
+        horasManualesMensuales: 0,
+        horasTotalesMensuales: 0,
         isNomina,
         assignedYear: 2,
         prioridad: currentPriority++,
+        isPendingDefinition: true,
+        gerenciaInitialPct: getGerenciaInitialPct(item.gerencia),
+        levelingTier: 'EVALUACION_NO_AUTO',
       });
     }
 
@@ -426,12 +694,14 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
       unifiedActivities.push({
         ...req,
         prioridad: currentPriority++,
+        levelingTier: 'OPERATIVO',
       });
     }
     for (const mant of operationalActivities.mants) {
       unifiedActivities.push({
         ...mant,
         prioridad: currentPriority++,
+        levelingTier: 'OPERATIVO',
       });
     }
 
@@ -447,66 +717,68 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
       assignmentsMap.set(act.id, danielCollab.id);
     }
 
-    // FASE 2: Distribuir actividades no-nómina asegurando contribución multi-gerencia y proporcionalidad
-    // Agrupar actividades por Gerencia
-    const activitiesByGerencia = new Map<string, typeof nonNominaActivities>();
-    for (const act of nonNominaActivities) {
-      if (!activitiesByGerencia.has(act.gerencia)) {
-        activitiesByGerencia.set(act.gerencia, []);
-      }
-      activitiesByGerencia.get(act.gerencia)!.push(act);
+    // FASE 2: Distribuir actividades no-nómina asegurando que CADA COLABORADOR TENGA ACTIVIDADES DE TODAS LAS GERENCIAS
+    const nonNominaCollabs = collabs.filter((c) => !c.isNominaExclusive);
+
+    // Matriz de seguimiento: collabId -> (gerenciaName -> count)
+    const collabGerenciaCounts = new Map<string, Map<string, number>>();
+    for (const c of nonNominaCollabs) {
+      collabGerenciaCounts.set(c.id, new Map<string, number>());
     }
 
-    // Pool de colaboradores ordenados según su rol para distribución balanceada:
-    // Los Especialistas llevan la mayor carga proporcional; Jefes y Becarios se limitan a sus topes.
-    const allCollabIds = collabs.map((c) => c.id);
-    const specialistIds = collabs.filter((c) => c.role === 'Especialista').map((c) => c.id);
-    const nonSpecialistIds = collabs.filter((c) => c.role !== 'Especialista').map((c) => c.id);
+    // Iterar cada actividad no-nómina en el orden unificado
+    for (const act of nonNominaActivities) {
+      // 1. Candidatos con capacidad disponible
+      let availableCollabs = nonNominaCollabs.filter((c) => {
+        const currentCount = Array.from(assignmentsMap.values()).filter((id) => id === c.id).length;
+        return currentCount < c.totalCapacity;
+      });
 
-    // Asignador proporcional de carga
-    let roundRobinSpecialistIdx = 0;
-    let roundRobinNonSpecialistIdx = 0;
+      // Si todos han alcanzado su capacidad nominal, considerar a todos los colaboradores no-nómina
+      if (availableCollabs.length === 0) {
+        availableCollabs = nonNominaCollabs;
+      }
 
-    // Para cada gerencia, distribuir sus actividades entre los miembros para que todos tengan actividades de múltiples gerencias
-    for (const [gerenciaName, actsInGerencia] of activitiesByGerencia.entries()) {
-      for (const act of actsInGerencia) {
-        // Encontrar al colaborador con menor porcentaje de carga asignada relativa a su capacidad
-        // Dando prioridad a alternar entre especialistas y no especialistas respetando cupos
-        let chosenCollab: PlanCollaborator | null = null;
+      // Ordenar candidatos con máxima prioridad a la DIVERSIDAD MULTIGERENCIA:
+      // Quien tenga MENOS actividades de esta gerencia específica se elige primero
+      availableCollabs.sort((a, b) => {
+        const gMapA = collabGerenciaCounts.get(a.id);
+        const gMapB = collabGerenciaCounts.get(b.id);
+        const gCountA = gMapA?.get(act.gerencia) || 0;
+        const gCountB = gMapB?.get(act.gerencia) || 0;
 
-        // Candidatos con capacidad disponible
-        const availableCollabs = collabs.filter((c) => {
-          const currentCount = Array.from(assignmentsMap.values()).filter((id) => id === c.id).length;
-          return currentCount < c.totalCapacity;
-        });
-
-        if (availableCollabs.length > 0) {
-          // Ordenar candidatos por menor ratio de ocupación (assignedCount / totalCapacity)
-          availableCollabs.sort((a, b) => {
-            const countA = Array.from(assignmentsMap.values()).filter((id) => id === a.id).length;
-            const countB = Array.from(assignmentsMap.values()).filter((id) => id === b.id).length;
-            const ratioA = a.totalCapacity > 0 ? countA / a.totalCapacity : 1;
-            const ratioB = b.totalCapacity > 0 ? countB / b.totalCapacity : 1;
-            if (Math.abs(ratioA - ratioB) > 0.05) {
-              return ratioA - ratioB;
-            }
-            // Si la gerencia ya está cubierta por este colaborador, preferir otro para diversificar
-            return countA - countB;
-          });
-          chosenCollab = availableCollabs[0];
-        } else {
-          // Si todos exceden su capacidad nominal, asignar al especialista con menor conteo absoluto
-          const allSpecialists = collabs.filter((c) => c.role === 'Especialista');
-          allSpecialists.sort((a, b) => {
-            const countA = Array.from(assignmentsMap.values()).filter((id) => id === a.id).length;
-            const countB = Array.from(assignmentsMap.values()).filter((id) => id === b.id).length;
-            return countA - countB;
-          });
-          chosenCollab = allSpecialists[0] || collabs[0];
+        // Criterio 1: Quien tenga menor conteo de actividades en esta gerencia
+        if (gCountA !== gCountB) {
+          return gCountA - gCountB;
         }
 
-        assignmentsMap.set(act.id, chosenCollab.id);
-      }
+        // Criterio 2: Ratio de ocupación general (assignedCount / totalCapacity)
+        const countA = Array.from(assignmentsMap.values()).filter((id) => id === a.id).length;
+        const countB = Array.from(assignmentsMap.values()).filter((id) => id === b.id).length;
+        const ratioA = a.totalCapacity > 0 ? countA / a.totalCapacity : 1;
+        const ratioB = b.totalCapacity > 0 ? countB / b.totalCapacity : 1;
+
+        if (Math.abs(ratioA - ratioB) > 0.05) {
+          return ratioA - ratioB;
+        }
+
+        // Criterio 3: Especialistas tienen mayor capacidad para absorber volumen
+        if (a.role === 'Especialista' && b.role !== 'Especialista') {
+          return -1;
+        }
+        if (b.role === 'Especialista' && a.role !== 'Especialista') {
+          return 1;
+        }
+
+        return countA - countB;
+      });
+
+      const chosenCollab = availableCollabs[0];
+      assignmentsMap.set(act.id, chosenCollab.id);
+
+      // Registrar que este colaborador tiene una actividad más de esta gerencia
+      const gMap = collabGerenciaCounts.get(chosenCollab.id)!;
+      gMap.set(act.gerencia, (gMap.get(act.gerencia) || 0) + 1);
     }
 
     // FASE 3: Aplicar reasignaciones manuales del usuario si las hay
@@ -552,6 +824,10 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
         assignedYear,
         prioridad: act.prioridad,
         isNomina: act.isNomina,
+        isPendingDefinition: act.isPendingDefinition || act.tipo === 'NO_DIG_NO_AUTO',
+        gerenciaInitialPct: act.gerenciaInitialPct,
+        gerenciaSimPct: act.gerenciaSimPct,
+        levelingTier: act.levelingTier,
       };
     });
 
@@ -587,7 +863,9 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
       jefeMonthlyCapacity: jefeCapacityRate,
       becarioMonthlyCapacity: becarioCapacityRate,
       especialistaMonthlyCapacity: especialistaCapacityRate,
-      pctNoAutoToInclude: pctNoAutoThreshold,
+      pctNoAutoToInclude: includeNoAutoActivities ? pctNoAutoThreshold : 0,
+      includeNoAutoActivities,
+      levelingTargetPct,
       anualRequerimientos,
       anualMantenimientos,
       totalActividades,
@@ -612,10 +890,63 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
     becarioCapacityRate,
     especialistaCapacityRate,
     pctNoAutoThreshold,
+    includeNoAutoActivities,
+    levelingTargetPct,
+    gerenciaSummaries,
     anualRequerimientos,
     anualMantenimientos,
     manualReassignments,
   ]);
+
+  // Proyecciones de Nivelación de Automatización por Gerencia (Prioridad hasta el 80%)
+  const gerenciaLevelingProjections = useMemo(() => {
+    const planActsByGerencia = new Map<string, PlanActivity[]>();
+    for (const act of planActivities) {
+      if (!planActsByGerencia.has(act.gerencia)) {
+        planActsByGerencia.set(act.gerencia, []);
+      }
+      planActsByGerencia.get(act.gerencia)!.push(act);
+    }
+
+    return gerenciaSummaries.map((summary) => {
+      const acts = planActsByGerencia.get(summary.gerencia) || [];
+      const totalPlanActs = acts.length;
+      const hoursFromPlan = acts.reduce((acc, a) => acc + (a.horasManualesMensuales || 0), 0);
+      const projectedAutoHours = summary.horasAutomatizadas + hoursFromPlan;
+      const projectedPct = summary.horasTotales > 0
+        ? Math.min(100, Number(((projectedAutoHours / summary.horasTotales) * 100).toFixed(1)))
+        : summary.pctAutomatizado;
+      const deltaPct = Number((projectedPct - summary.pctAutomatizado).toFixed(1));
+
+      const tier1Count = acts.filter((a) => a.levelingTier === 'NIVELACION_SUB_80').length;
+      const tier2Count = acts.filter((a) => a.levelingTier === 'CONSOLIDACION_SUPER_80').length;
+      const noAutoCount = acts.filter((a) => a.tipo === 'NO_DIG_NO_AUTO').length;
+
+      const year1Count = acts.filter((a) => a.assignedYear === 1).length;
+      const year2Count = acts.filter((a) => a.assignedYear === 2).length;
+      const year3Count = acts.filter((a) => a.assignedYear === 3).length;
+
+      return {
+        gerencia: summary.gerencia,
+        initialPct: summary.pctAutomatizado,
+        initialAutoHours: summary.horasAutomatizadas,
+        initialManualHours: summary.horasManuales,
+        totalHours: summary.horasTotales,
+        planActsCount: totalPlanActs,
+        hoursFromPlan,
+        projectedPct,
+        deltaPct,
+        meetsTarget: projectedPct >= levelingTargetPct,
+        initiallyBelowTarget: summary.pctAutomatizado < levelingTargetPct,
+        tier1Count,
+        tier2Count,
+        noAutoCount,
+        year1Count,
+        year2Count,
+        year3Count,
+      };
+    }).sort((a, b) => a.initialPct - b.initialPct);
+  }, [gerenciaSummaries, planActivities, levelingTargetPct]);
 
   // Función para reasignar una actividad
   const handleReassignActivity = useCallback((actId: string, newCollabId: string) => {
@@ -672,7 +1003,9 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
     setJefeCapacityRate(1.0);
     setBecarioCapacityRate(1.0);
     setEspecialistaCapacityRate(1.5);
+    setIncludeNoAutoActivities(true);
     setPctNoAutoThreshold(20);
+    setLevelingTargetPct(80);
     setAnualRequerimientos(10);
     setAnualMantenimientos(25);
     setTeamMembers(INITIAL_TEAM);
@@ -708,7 +1041,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
         planMetrics,
         collaboratorsSummary,
         planActivities,
-        `Plan_de_Trabajo_Automatizacion_${horizonYears}_Anos.xlsx`
+        `Plan_de_Trabajo_Automatizacion_2027_${toCalendarYear(horizonYears)}.xlsx`
       );
     } catch (err) {
       console.error('Error al exportar plan a Excel:', err);
@@ -717,28 +1050,109 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
     }
   };
 
-  // Filtrado de actividades para la vista de catálogo
+  // Filtrado de actividades para la vista de catálogo con filtros estilo Excel
   const filteredActivities = useMemo(() => {
-    return planActivities.filter((act) => {
-      if (filterGerencia !== 'ALL' && act.gerencia !== filterGerencia) return false;
-      if (filterColaborador !== 'ALL' && act.colaboradorAsignadoId !== filterColaborador) return false;
-      if (filterTipo !== 'ALL' && act.tipo !== filterTipo) return false;
-      if (filterYear !== 'ALL' && act.assignedYear !== filterYear) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+    let list = planActivities;
+
+    // Búsqueda global de texto
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((act) => {
         const matchName = act.actividadProceso.toLowerCase().includes(q);
         const matchGer = act.gerencia.toLowerCase().includes(q);
         const matchColab = act.colaboradorAsignadoNombre.toLowerCase().includes(q);
-        if (!matchName && !matchGer && !matchColab) return false;
-      }
-      return true;
-    });
-  }, [planActivities, filterGerencia, filterColaborador, filterTipo, filterYear, searchQuery]);
+        const matchTipo = act.tipoLabel.toLowerCase().includes(q);
+        return matchName || matchGer || matchColab || matchTipo;
+      });
+    }
+
+    // Filtro Excel: Año Calendario (2027, 2028, etc.)
+    if (filterYears.length > 0) {
+      list = list.filter((act) => filterYears.includes(toCalendarYear(act.assignedYear)));
+    }
+
+    // Filtro Excel: Gerencia
+    if (filterGerencias.length > 0) {
+      list = list.filter((act) => filterGerencias.includes(act.gerencia));
+    }
+
+    // Filtro Excel: Tipo
+    if (filterTipos.length > 0) {
+      list = list.filter((act) => filterTipos.includes(act.tipo));
+    }
+
+    // Filtro Excel: Colaborador
+    if (filterColaboradores.length > 0) {
+      list = list.filter((act) => filterColaboradores.includes(act.colaboradorAsignadoId));
+    }
+
+    // Filtro Excel: Roles de colaborador
+    if (filterColabRoles.length > 0) {
+      list = list.filter((act) => filterColabRoles.includes(act.colaboradorAsignadoRol));
+    }
+
+    // Filtro Excel: Horas Manuales
+    if (filterHoursRange === 'POR_DEFINIR') {
+      list = list.filter((act) => act.tipo === 'NO_DIG_NO_AUTO' || (act as any).isPendingDefinition);
+    } else if (filterHoursRange === 'CON_HORAS') {
+      list = list.filter((act) => act.tipo !== 'NO_DIG_NO_AUTO' && act.horasManualesMensuales > 0);
+    } else if (filterHoursRange === 'GT_30') {
+      list = list.filter((act) => act.horasManualesMensuales >= 30);
+    } else if (filterHoursRange === 'GT_60') {
+      list = list.filter((act) => act.horasManualesMensuales >= 60);
+    }
+
+    // Ordenamiento por prioridad
+    if (filterSortPrio === 'DESC') {
+      list = [...list].sort((a, b) => b.prioridad - a.prioridad);
+    } else {
+      list = [...list].sort((a, b) => a.prioridad - b.prioridad);
+    }
+
+    return list;
+  }, [
+    planActivities,
+    searchQuery,
+    filterYears,
+    filterGerencias,
+    filterTipos,
+    filterColaboradores,
+    filterColabRoles,
+    filterHoursRange,
+    filterSortPrio,
+  ]);
+
+  const isAnyFilterActive =
+    searchQuery.trim().length > 0 ||
+    filterYears.length > 0 ||
+    filterGerencias.length > 0 ||
+    filterTipos.length > 0 ||
+    filterColaboradores.length > 0 ||
+    filterColabRoles.length > 0 ||
+    filterHoursRange !== 'ALL' ||
+    filterSortPrio !== 'ASC';
+
+  const handleClearAllFilters = () => {
+    setSearchQuery('');
+    setFilterYears([]);
+    setFilterGerencias([]);
+    setFilterTipos([]);
+    setFilterColaboradores([]);
+    setFilterColabRoles([]);
+    setFilterHoursRange('ALL');
+    setFilterSortPrio('ASC');
+  };
 
   // Lista única de gerencias involucradas en el plan
   const planGerencias = useMemo(() => {
     return Array.from(new Set(planActivities.map((a) => a.gerencia))).sort();
   }, [planActivities]);
+
+  // Métricas agregadas de Nivelación y Avance hacia la meta de automatización
+  const gerenciasBelowTargetInitially = gerenciaLevelingProjections.filter((g) => g.initiallyBelowTarget).length;
+  const gerenciasMeetingTargetProjected = gerenciaLevelingProjections.filter((g) => g.meetsTarget).length;
+  const totalTier1Acts = planActivities.filter((a) => a.levelingTier === 'NIVELACION_SUB_80').length;
+  const totalTier2Acts = planActivities.filter((a) => a.levelingTier === 'CONSOLIDACION_SUPER_80').length;
 
   return (
     <div className="space-y-6">
@@ -760,12 +1174,10 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               Hoja 3: Distribución del Plan de Automatización
             </h2>
             <p className="text-slate-300 text-xs md:text-sm leading-relaxed">
-              Distribución estratégica de actividades únicas para el{' '}
-              <strong className="text-white">Equipo de Eficiencia de Procesos</strong>. Priorización por
-              horas manuales, inclusión del 100% de actividades automatizables, cupo del{' '}
-              <strong className="text-white">{pctNoAutoThreshold}% no automatizables</strong>, requerimientos (
-              {anualRequerimientos}/año), mantenimientos ({anualMantenimientos}/año) y exclusividad de{' '}
-              <strong className="text-blue-400">Daniel García Velázquez</strong> en Nómina.
+              Distribución estratégica y concurrente para el{' '}
+              <strong className="text-white">Equipo de Eficiencia de Procesos</strong>. Atención simultánea de todas las gerencias desde el primer año, priorizando con mayor intensidad aquellas con menor nivel de automatización hasta nivelar al{' '}
+              <strong className="text-rose-300 font-bold">{levelingTargetPct}%</strong>, con portafolios multigerencia balanceados por colaborador y exclusividad de{' '}
+              <strong className="text-blue-400 font-bold">Daniel García Velázquez</strong> en Nómina.
             </p>
           </div>
 
@@ -804,19 +1216,24 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
         </div>
 
         {/* ------------------------------------------------------------- */}
-        {/* BARRA DE PARÁMETROS DINÁMICOS DEL ESCENARIO */}
+        {/* BARRA DE PARÁMETROS DINÁMICOS DEL ESCENARIO (6 CONTROLES INDEPENDIENTES) */}
         {/* ------------------------------------------------------------- */}
-        <div className="relative z-10 mt-6 pt-6 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Parámetro 1: Plazo en Años */}
-          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-blue-400" />
-                Plazo del Plan:
-              </span>
-              <span className="font-mono font-black text-blue-400 text-sm">
-                {horizonYears} {horizonYears === 1 ? 'Año' : 'Años'} ({totalMonths} meses)
-              </span>
+        <div className="relative z-10 mt-6 pt-6 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+          {/* Parámetro 1: Plazo en Años Calendario */}
+          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                  Plazo del Plan:
+                </span>
+                <span className="font-mono font-black text-blue-400 text-sm">
+                  {horizonYears} {horizonYears === 1 ? 'Año' : 'Años'}
+                </span>
+              </div>
+              <div className="text-[11px] font-mono text-slate-400">
+                Calendario: <strong className="text-white font-bold">{BASE_PLAN_START_YEAR} a {toCalendarYear(horizonYears)}</strong> ({totalMonths} meses)
+              </div>
             </div>
             <input
               type="range"
@@ -828,53 +1245,91 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               className="w-full accent-blue-500 cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-              <span>1 Año</span>
-              <span>3 Años (Meta)</span>
-              <span>5 Años</span>
+              <span>2027 (1a)</span>
+              <span>2029 (Meta 3a)</span>
+              <span>2031 (5a)</span>
             </div>
           </div>
 
-          {/* Parámetro 2: Ritmo Jefes y Becarios (Max 1/mes) */}
-          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-indigo-400" />
-                Jefes & Becarios:
-              </span>
-              <span className="font-mono font-black text-indigo-300 text-sm">
-                {jefeCapacityRate} act/mes
-              </span>
+          {/* Parámetro 2: Ritmo Jefes (Jefe Sr y Jefe) - INDEPENDIENTE */}
+          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-300 flex items-center gap-1.5" title="Capacidad mensual para Jefes Sr y Jefes (máximo reglamentario: 1/mes)">
+                  <Users className="w-3.5 h-3.5 text-indigo-400" />
+                  Capacidad Jefes:
+                </span>
+                <span className="font-mono font-black text-indigo-300 text-sm">
+                  {jefeCapacityRate} act/mes
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-400">
+                3 Jefes = <strong className="text-indigo-200 font-mono font-bold">{(3 * jefeCapacityRate * totalMonths).toFixed(0)} act</strong> ({horizonYears}a)
+              </div>
             </div>
             <input
               type="range"
-              min={0.5}
+              min={0.2}
               max={2.0}
-              step={0.5}
+              step={0.1}
               value={jefeCapacityRate}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                setJefeCapacityRate(val);
-                setBecarioCapacityRate(val);
-              }}
+              onChange={(e) => setJefeCapacityRate(Number(e.target.value))}
               className="w-full accent-indigo-500 cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-              <span>0.5/m</span>
-              <span>1.0/m (Límite regla)</span>
+              <span>0.2/m</span>
+              <span className="text-indigo-300 font-bold">1.0/m (Regla)</span>
               <span>2.0/m</span>
             </div>
           </div>
 
-          {/* Parámetro 3: Ritmo Especialistas */}
-          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                <Briefcase className="w-3.5 h-3.5 text-emerald-400" />
-                Especialistas:
-              </span>
-              <span className="font-mono font-black text-emerald-400 text-sm">
-                {especialistaCapacityRate} act/mes
-              </span>
+          {/* Parámetro 3: Ritmo Becarios - INDEPENDIENTE */}
+          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-300 flex items-center gap-1.5" title="Capacidad mensual para Becarios (máximo reglamentario: 1/mes)">
+                  <Users className="w-3.5 h-3.5 text-cyan-400" />
+                  Capacidad Becarios:
+                </span>
+                <span className="font-mono font-black text-cyan-300 text-sm">
+                  {becarioCapacityRate} act/mes
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-400">
+                3 Becarios = <strong className="text-cyan-200 font-mono font-bold">{(3 * becarioCapacityRate * totalMonths).toFixed(0)} act</strong> ({horizonYears}a)
+              </div>
+            </div>
+            <input
+              type="range"
+              min={0.2}
+              max={2.0}
+              step={0.1}
+              value={becarioCapacityRate}
+              onChange={(e) => setBecarioCapacityRate(Number(e.target.value))}
+              className="w-full accent-cyan-500 cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+              <span>0.2/m</span>
+              <span className="text-cyan-300 font-bold">1.0/m (Regla)</span>
+              <span>2.0/m</span>
+            </div>
+          </div>
+
+          {/* Parámetro 4: Ritmo Especialistas */}
+          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-emerald-400" />
+                  Especialistas:
+                </span>
+                <span className="font-mono font-black text-emerald-400 text-sm">
+                  {especialistaCapacityRate} act/mes
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-400">
+                {teamMembers.filter((m) => m.role === 'Especialista').length} Especialistas = <strong className="text-emerald-200 font-mono font-bold">{(teamMembers.filter((m) => m.role === 'Especialista').length * especialistaCapacityRate * totalMonths).toFixed(0)} act</strong>
+              </div>
             </div>
             <input
               type="range"
@@ -887,35 +1342,164 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
             />
             <div className="flex justify-between text-[10px] text-slate-400 font-mono">
               <span>0.5/m</span>
-              <span>1.5/m</span>
+              <span className="text-emerald-300 font-bold">1.5/m (Base)</span>
               <span>3.0/m</span>
             </div>
           </div>
 
-          {/* Parámetro 4: % No Automatizables a Incluir */}
-          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-300 flex items-center gap-1.5" title="Calculado sobre el total de actividades únicas de la Hoja 2">
-                <Layers className="w-3.5 h-3.5 text-amber-400" />
-                % No Auto (s/total Hoja 2):
-              </span>
-              <span className="font-mono font-black text-amber-400 text-sm">
-                {pctNoAutoThreshold}% ({candidateActivities.noDigNoAutoSelected.length} de {allUniqueActivities.length} act)
-              </span>
+          {/* Parámetro 5: No Digitalizadas No Automatizables (Toggle Dinámico + % de Cupo) */}
+          {/* Parámetro 5: No Digitalizadas No Automatizables (Toggle Dinámico + % de Cupo sobre Total Hoja 2) */}
+          <div className={`border rounded-xl p-3.5 space-y-2.5 transition-all flex flex-col justify-between ${
+            includeNoAutoActivities
+              ? 'bg-slate-800/90 border-amber-500/50'
+              : 'bg-slate-900/90 border-slate-800 opacity-80'
+          }`}>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-amber-400" />
+                  No Dig / No Auto:
+                </span>
+                {/* Switch dinámico para activar o desactivar */}
+                <button
+                  type="button"
+                  onClick={() => setIncludeNoAutoActivities(!includeNoAutoActivities)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-black uppercase transition-all cursor-pointer ${
+                    includeNoAutoActivities
+                      ? 'bg-amber-400 text-slate-950 font-bold shadow-xs'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  }`}
+                  title={includeNoAutoActivities ? 'Haz clic para desactivar inclusión de No Auto en el plan' : 'Haz clic para activar inclusión de No Auto en el plan'}
+                >
+                  {includeNoAutoActivities ? 'Activo' : 'Inactivo'}
+                </button>
+              </div>
+
+              {includeNoAutoActivities ? (
+                <div className="space-y-1">
+                  <div className="text-[11px] text-amber-300 font-mono flex items-center justify-between">
+                    <span>
+                      Cupo: <strong className="font-bold">{pctNoAutoThreshold}% s/total Hoja 2</strong>
+                    </span>
+                    <span className="bg-amber-400/20 text-amber-200 px-1.5 py-0.5 rounded text-[10px] font-bold border border-amber-400/40">
+                      {candidateActivities.noDigNoAutoSelected.length} act [Por Definir]
+                    </span>
+                  </div>
+
+                  <div className="text-[10px] text-slate-400 flex items-center justify-between bg-slate-900/60 p-1.5 rounded-lg border border-slate-700/60">
+                    <span>Base total Hoja 2:</span>
+                    <strong className="text-white font-mono">
+                      {formatThousands(totalHoja2Activities)} actividades
+                    </strong>
+                  </div>
+
+                  {/* Selector interactivo de base de Hoja 2 si se desea auditar la métrica */}
+                  <div className="flex items-center gap-1 pt-0.5 text-[9px]">
+                    <span className="text-slate-400">Base:</span>
+                    <button
+                      type="button"
+                      onClick={() => setHoja2CalculationBase('STATUS_TOTAL')}
+                      className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
+                        hoja2CalculationBase === 'STATUS_TOTAL'
+                          ? 'bg-amber-500 text-slate-950 font-bold'
+                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                      title="Métrica oficial de Hoja 2 (Suma de los 4 cuadrantes de estatus)"
+                    >
+                      Por Estatus ({hoja2StatusAnalysis.totalActividadesPorEstatus})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHoja2CalculationBase('RECORDS_TOTAL')}
+                      className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
+                        hoja2CalculationBase === 'RECORDS_TOTAL'
+                          ? 'bg-amber-500 text-slate-950 font-bold'
+                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                      title="Total de registros de actividades en el inventario"
+                    >
+                      Inventario ({records.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHoja2CalculationBase('BASE_UNIQUE')}
+                      className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
+                        hoja2CalculationBase === 'BASE_UNIQUE'
+                          ? 'bg-amber-500 text-slate-950 font-bold'
+                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                      title="Actividades base únicas por gerencia"
+                    >
+                      Base ({hoja2StatusAnalysis.totalActividadesBase})
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[11px] text-slate-400 italic">
+                  Desactivadas (0 act en el plan)
+                </div>
+              )}
+            </div>
+
+            {includeNoAutoActivities ? (
+              <div className="space-y-1">
+                <input
+                  type="range"
+                  min={5}
+                  max={40}
+                  step={1}
+                  value={pctNoAutoThreshold}
+                  onChange={(e) => setPctNoAutoThreshold(Number(e.target.value))}
+                  className="w-full accent-amber-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                  <span>5%</span>
+                  <span className="text-amber-300 font-bold">
+                    20% ({Math.round(totalHoja2Activities * 0.20)} act)
+                  </span>
+                  <span>40%</span>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIncludeNoAutoActivities(true)}
+                className="w-full py-1 text-[11px] font-bold text-amber-300 bg-amber-950/40 border border-amber-500/30 rounded-lg hover:bg-amber-900/40 transition-colors text-center cursor-pointer"
+              >
+                + Activar Cupo No Auto
+              </button>
+            )}
+          </div>
+
+          {/* Parámetro 6: Meta de Nivelación de Gerencias (80%) */}
+          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-300 flex items-center gap-1.5" title="Prioriza gerencias con menor % de automatización de mayor a menor horas hasta alcanzar esta meta">
+                  <Target className="w-3.5 h-3.5 text-rose-400" />
+                  Meta Nivelación:
+                </span>
+                <span className="font-mono font-black text-rose-300 text-sm">
+                  {levelingTargetPct}% auto
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-400">
+                Prioriza &lt; <strong className="text-rose-200 font-mono">{levelingTargetPct}%</strong> de mayor a menor horas
+              </div>
             </div>
             <input
               type="range"
-              min={5}
-              max={40}
-              step={1}
-              value={pctNoAutoThreshold}
-              onChange={(e) => setPctNoAutoThreshold(Number(e.target.value))}
-              className="w-full accent-amber-500 cursor-pointer"
+              min={60}
+              max={90}
+              step={5}
+              value={levelingTargetPct}
+              onChange={(e) => setLevelingTargetPct(Number(e.target.value))}
+              className="w-full accent-rose-500 cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-              <span>5%</span>
-              <span>20% ({Math.round(allUniqueActivities.length * 0.2)} act de mayor impacto)</span>
-              <span>40%</span>
+              <span>60%</span>
+              <span className="text-rose-300 font-bold">80% (Meta)</span>
+              <span>90%</span>
             </div>
           </div>
         </div>
@@ -1060,19 +1644,19 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                 {formatThousands(planMetrics.totalActividades)}
               </span>
               <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200/60 font-mono">
-                {horizonYears} Años
+                {BASE_PLAN_START_YEAR} - {toCalendarYear(horizonYears)}
               </span>
             </div>
           </div>
           <div className="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-500 space-y-0.5">
             <div>
-              • No Dig Sí Auto: <strong className="text-slate-800">{candidateActivities.noDigSiAuto.length}</strong> (100%)
+              • No Dig Sí Auto: <strong className="text-slate-800">{candidateActivities.noDigSiAuto.length}</strong> (100% Hoja 2)
             </div>
             <div>
-              • No Dig No Auto: <strong className="text-slate-800">{candidateActivities.noDigNoAutoSelected.length}</strong> ({pctNoAutoThreshold}% de {allUniqueActivities.length} totales)
+              • No Dig No Auto: <strong className="text-slate-800">{candidateActivities.noDigNoAutoSelected.length}</strong> ({includeNoAutoActivities ? `${pctNoAutoThreshold}% s/total Hoja 2 (${totalHoja2Activities} act)` : 'Desactivadas 0'})
             </div>
             <div>
-              • Reqs & Mants: <strong className="text-slate-800">{operationalActivities.totalOpsCount}</strong> en {horizonYears} años
+              • Reqs & Mants: <strong className="text-slate-800">{operationalActivities.totalOpsCount}</strong> en {horizonYears} años ({BASE_PLAN_START_YEAR}-{toCalendarYear(horizonYears)})
             </div>
           </div>
         </div>
@@ -1164,6 +1748,230 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
       </div>
 
       {/* ------------------------------------------------------------- */}
+      {/* SECCIÓN INTERACTIVA: NIVELACIÓN DE AUTOMATIZACIÓN POR GERENCIA (META 80%) */}
+      {/* ------------------------------------------------------------- */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-200/60">
+                <Target className="w-5 h-5" />
+              </span>
+              <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
+                Estrategia de Nivelación de Automatización por Gerencia (Prioridad hasta {levelingTargetPct}%)
+              </h3>
+            </div>
+            <p className="text-xs text-slate-600 max-w-4xl leading-relaxed">
+              Equilibrio operativo: Se atienden con máxima prioridad las gerencias con menor nivel inicial de automatización
+              (ordenadas de mayor a menor impacto de horas manuales) hasta que su porcentaje alcance el <strong className="text-slate-900 font-bold">{levelingTargetPct}%</strong>.
+              Una vez cubierta la meta, se incorporan las gerencias subsecuentes y la consolidación de actividades restantes.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowLevelingBreakdown(!showLevelingBreakdown)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition-colors cursor-pointer shadow-2xs"
+            >
+              {showLevelingBreakdown ? (
+                <>
+                  <ChevronUp className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Ocultar Matriz ({gerenciaLevelingProjections.length})</span>
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Ver Matriz de Nivelación ({gerenciaLevelingProjections.length})</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Resumen ejecutivo de nivelación en badges */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Gerencias Iniciales &lt; {levelingTargetPct}%
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-xl font-black font-mono text-amber-700">
+                {gerenciasBelowTargetInitially}
+              </span>
+              <span className="text-[11px] text-slate-500">
+                de {gerenciaLevelingProjections.length} gerencias
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-500 mt-0.5">
+              Menor base: <strong className="text-slate-800">CXP (38.6%)</strong>
+            </div>
+          </div>
+
+          <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+              Gerencias con Meta Proyectada
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-xl font-black font-mono text-emerald-800">
+                {gerenciasMeetingTargetProjected}
+              </span>
+              <span className="text-[11px] text-emerald-700">
+                de {gerenciaLevelingProjections.length} ({(gerenciasMeetingTargetProjected / Math.max(1, gerenciaLevelingProjections.length) * 100).toFixed(0)}%)
+              </span>
+            </div>
+            <div className="text-[10px] text-emerald-700 mt-0.5">
+              Alcanzan o superan el {levelingTargetPct}%
+            </div>
+          </div>
+
+          <div className="bg-rose-50/70 border border-rose-200/80 rounded-xl p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-rose-800">
+              Tier 1: Nivelación (&lt; {levelingTargetPct}%)
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-xl font-black font-mono text-rose-800">
+                {totalTier1Acts}
+              </span>
+              <span className="text-[11px] text-rose-700">
+                actividades prioritarias
+              </span>
+            </div>
+            <div className="text-[10px] text-rose-700 mt-0.5">
+              Enfocadas en cerrar brechas operativas
+            </div>
+          </div>
+
+          <div className="bg-indigo-50/70 border border-indigo-200/80 rounded-xl p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-800">
+              Tier 2: Consolidación (≥ {levelingTargetPct}%)
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-xl font-black font-mono text-indigo-800">
+                {totalTier2Acts}
+              </span>
+              <span className="text-[11px] text-indigo-700">
+                actividades
+              </span>
+            </div>
+            <div className="text-[10px] text-indigo-700 mt-0.5">
+              Optimización post-nivelación
+            </div>
+          </div>
+        </div>
+
+        {/* Matriz detallada de las 14 gerencias desplegable */}
+        {showLevelingBreakdown && (
+          <div className="pt-2 border-t border-slate-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {gerenciaLevelingProjections.map((g, idx) => {
+                const isBaseOver80 = g.initialPct >= levelingTargetPct;
+                const isProjectedOver80 = g.projectedPct >= levelingTargetPct;
+
+                return (
+                  <div
+                    key={g.gerencia}
+                    className={`p-3.5 rounded-xl border transition-all ${
+                      isBaseOver80
+                        ? 'bg-slate-50/80 border-slate-200'
+                        : isProjectedOver80
+                        ? 'bg-emerald-50/40 border-emerald-200/80 shadow-2xs'
+                        : 'bg-amber-50/40 border-amber-200/80 shadow-2xs'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-200/80 text-slate-700">
+                            #{idx + 1} Prio
+                          </span>
+                          <span className="font-bold text-slate-900 text-xs">
+                            {g.gerencia}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-mono">
+                          Total horas gerencia: <strong>{formatThousands(g.totalHours)} h/m</strong>
+                        </div>
+                      </div>
+
+                      {/* Badge de estado frente a la meta */}
+                      <div>
+                        {isBaseOver80 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-800 border border-slate-300">
+                            ⭐ Base ≥ {levelingTargetPct}%
+                          </span>
+                        ) : isProjectedOver80 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                            ✅ Meta {levelingTargetPct}% (+{g.deltaPct}%)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                            🎯 Nivelando (+{g.deltaPct}%)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Barra de progreso de automatización dual (Inicial + Plan) */}
+                    <div className="mt-3 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] font-mono">
+                        <span className="text-slate-600">
+                          Inicial: <strong className="text-slate-900">{g.initialPct}%</strong>
+                        </span>
+                        <span className="font-bold text-slate-900">
+                          Proyectado: <strong className={isProjectedOver80 ? 'text-emerald-700 text-xs' : 'text-amber-800'}>{g.projectedPct}%</strong>
+                        </span>
+                      </div>
+
+                      {/* Track de progreso con marca visual en 80% */}
+                      <div className="relative w-full h-3 bg-slate-200 rounded-full overflow-hidden flex">
+                        {/* Porcentaje inicial */}
+                        <div
+                          className="h-full bg-slate-600 transition-all duration-300"
+                          style={{ width: `${Math.min(100, g.initialPct)}%` }}
+                          title={`Inicial: ${g.initialPct}%`}
+                        />
+                        {/* Aporte del plan */}
+                        <div
+                          className="h-full bg-emerald-500 transition-all duration-300"
+                          style={{ width: `${Math.max(0, Math.min(100 - g.initialPct, g.deltaPct))}%` }}
+                          title={`Aporte del plan: +${g.deltaPct}%`}
+                        />
+                        {/* Línea de meta de 80% */}
+                        <div
+                          className="absolute top-0 bottom-0 w-0.5 bg-red-600 z-10"
+                          style={{ left: `${levelingTargetPct}%` }}
+                          title={`Meta: ${levelingTargetPct}%`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Desglose de actividades y cronograma */}
+                    <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[10px] text-slate-600 font-mono">
+                      <span>
+                        Plan: <strong className="text-slate-900 font-bold">{g.planActsCount} act</strong> ({formatHours(g.hoursFromPlan)} h/m)
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.2 rounded bg-white border border-slate-200">
+                          2027: {g.year1Count}
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded bg-white border border-slate-200">
+                          2028: {g.year2Count}
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded bg-white border border-slate-200">
+                          2029+: {g.year3Count}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ------------------------------------------------------------- */}
       {/* NAVEGACIÓN DE PESTAÑAS INTERNAS DE LA HOJA 3 */}
       {/* ------------------------------------------------------------- */}
       <div className="bg-white border border-slate-200 rounded-xl p-2 flex flex-wrap items-center justify-between gap-3 shadow-xs">
@@ -1204,7 +2012,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
             }`}
           >
             <Calendar className="w-4 h-4" />
-            <span>Cronograma por Años / Fases (Año 1 a {horizonYears})</span>
+            <span>Cronograma por Años ({BASE_PLAN_START_YEAR} a {toCalendarYear(horizonYears)})</span>
           </button>
         </div>
 
@@ -1435,25 +2243,39 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                         </td>
 
                         <td className="py-3 px-4">
-                          <div className="flex flex-wrap gap-1 max-w-md">
-                            {collab.gerenciasCovered.map((g) => {
-                              const isNom = g.toLowerCase().includes('nomin');
-                              return (
-                                <span
-                                  key={g}
-                                  className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
-                                    isNom
-                                      ? 'bg-blue-100 text-blue-900 border-blue-300 font-bold'
-                                      : 'bg-slate-100 text-slate-700 border-slate-200'
-                                  }`}
-                                >
-                                  {g}
+                          <div className="space-y-1.5 max-w-md">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold text-slate-500 font-mono">
+                                {collab.isNominaExclusive
+                                  ? 'Exclusivo 1 Gerencia'
+                                  : `${collab.gerenciasCovered.length} Gerencias cubiertas`}
+                              </span>
+                              {!collab.isNominaExclusive && collab.gerenciasCovered.length >= 10 && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  Portafolio Integral
                                 </span>
-                              );
-                            })}
-                            {collab.gerenciasCovered.length === 0 && (
-                              <span className="text-slate-400 italic text-[11px]">Sin asignaciones</span>
-                            )}
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {collab.gerenciasCovered.map((g) => {
+                                const isNom = g.toLowerCase().includes('nomin');
+                                return (
+                                  <span
+                                    key={g}
+                                    className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
+                                      isNom
+                                        ? 'bg-blue-100 text-blue-900 border-blue-300 font-bold'
+                                        : 'bg-slate-100 text-slate-700 border-slate-200'
+                                    }`}
+                                  >
+                                    {g}
+                                  </span>
+                                );
+                              })}
+                              {collab.gerenciasCovered.length === 0 && (
+                                <span className="text-slate-400 italic text-[11px]">Sin asignaciones</span>
+                              )}
+                            </div>
                           </div>
                         </td>
 
@@ -1508,11 +2330,11 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      setFilterColaborador(collab.id);
+                                      setFilterColaboradores([collab.id]);
                                       setActiveTab('actividades');
                                     }}
                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 hover:text-blue-900 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer shadow-2xs"
@@ -1556,18 +2378,25 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                                             #{act.prioridad}
                                           </td>
                                           <td className="py-2 px-3 text-center">
-                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-800 font-mono">
-                                              Año {act.assignedYear}
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-900 border border-blue-200 font-mono">
+                                              {toCalendarYear(act.assignedYear)}
                                             </span>
                                           </td>
                                           <td className="py-2 px-3">
-                                            <span
-                                              className={`font-semibold ${
-                                                act.isNomina ? 'text-blue-900 font-bold' : 'text-slate-800'
-                                              }`}
-                                            >
-                                              {act.gerencia}
-                                            </span>
+                                            <div className="flex flex-col">
+                                              <span
+                                                className={`font-semibold ${
+                                                  act.isNomina ? 'text-blue-900 font-bold' : 'text-slate-800'
+                                                }`}
+                                              >
+                                                {act.gerencia}
+                                              </span>
+                                              {act.gerenciaInitialPct !== undefined && (
+                                                <span className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                                  Base: <strong className={act.gerenciaInitialPct < levelingTargetPct ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold'}>{act.gerenciaInitialPct}%</strong> auto
+                                                </span>
+                                              )}
+                                            </div>
                                           </td>
                                           <td className="py-2 px-4 max-w-md">
                                             <div className="font-semibold text-slate-900 leading-snug">
@@ -1575,22 +2404,50 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                                             </div>
                                           </td>
                                           <td className="py-2 px-3">
-                                            <span
-                                              className={`px-2 py-0.5 rounded text-[10px] font-medium border inline-block ${
-                                                act.tipo === 'NO_DIG_SI_AUTO'
-                                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                                  : act.tipo === 'NO_DIG_NO_AUTO'
-                                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                                  : act.tipo === 'REQUERIMIENTO'
-                                                  ? 'bg-blue-50 text-blue-800 border-blue-200'
-                                                  : 'bg-purple-50 text-purple-800 border-purple-200'
-                                              }`}
-                                            >
-                                              {act.tipoLabel}
-                                            </span>
+                                            <div className="flex flex-col gap-1 items-start">
+                                              <span
+                                                className={`px-2 py-0.5 rounded text-[10px] font-medium border inline-block ${
+                                                  act.tipo === 'NO_DIG_SI_AUTO'
+                                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                                    : act.tipo === 'NO_DIG_NO_AUTO'
+                                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                                    : act.tipo === 'REQUERIMIENTO'
+                                                    ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                                    : 'bg-purple-50 text-purple-800 border-purple-200'
+                                                }`}
+                                              >
+                                                {act.tipoLabel}
+                                              </span>
+                                              {act.levelingTier === 'NIVELACION_SUB_80' && (
+                                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">
+                                                  🎯 Nivelación (&lt; {levelingTargetPct}%)
+                                                </span>
+                                              )}
+                                              {act.levelingTier === 'CONSOLIDACION_SUPER_80' && (
+                                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                                                  ✨ Consolidación (≥ {levelingTargetPct}%)
+                                                </span>
+                                              )}
+                                              {act.levelingTier === 'EVALUACION_NO_AUTO' && (
+                                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1">
+                                                  🔍 Cupo No Auto
+                                                </span>
+                                              )}
+                                              {act.levelingTier === 'OPERATIVO' && (
+                                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1">
+                                                  ⚙️ Operativo
+                                                </span>
+                                              )}
+                                            </div>
                                           </td>
                                           <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
-                                            {formatHours(act.horasManualesMensuales)} h
+                                            {act.tipo === 'NO_DIG_NO_AUTO' || (act as any).isPendingDefinition ? (
+                                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                                Por definir
+                                              </span>
+                                            ) : (
+                                              `${formatHours(act.horasManualesMensuales)} h`
+                                            )}
                                           </td>
                                           <td className="py-2 px-4" onClick={(e) => e.stopPropagation()}>
                                             {act.isNomina ? (
@@ -1637,124 +2494,658 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
       {/* VISTA 2: CATÁLOGO DE ACTIVIDADES ASIGNADAS Y REASIGNACIÓN */}
       {/* ------------------------------------------------------------- */}
       {activeTab === 'actividades' && (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden space-y-4 p-5">
-          {/* Barra de Filtros del Catálogo */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-slate-200">
-            {/* Buscador de texto */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Buscar por actividad, gerencia o asignado..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-              />
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden space-y-4 p-5 relative">
+          {/* Backdrop para cerrar popovers de filtros Excel */}
+          {openHeaderFilter && (
+            <div
+              className="fixed inset-0 z-30 bg-transparent cursor-default"
+              onClick={() => setOpenHeaderFilter(null)}
+            />
+          )}
+
+          {/* Barra superior del Catálogo: Búsqueda rápida y Resumen de Filtros */}
+          <div className="flex flex-col gap-3 pb-4 border-b border-slate-200 relative z-20">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {/* Buscador de texto global */}
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Buscar texto en actividad, gerencia, colaborador..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Controles de Vista y Paginación */}
+              <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 font-semibold">Mostrar:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                    className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
+                  >
+                    <option value={50}>50 actividades</option>
+                    <option value={100}>100 actividades</option>
+                    <option value={200}>200 actividades</option>
+                    <option value="ALL">Todas ({filteredActivities.length})</option>
+                  </select>
+                </div>
+
+                <div className="text-xs text-slate-600 font-mono font-bold">
+                  {filteredActivities.length} de {planActivities.length} act
+                </div>
+
+                {isAnyFilterActive && (
+                  <button
+                    type="button"
+                    onClick={handleClearAllFilters}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold border border-rose-200 transition-colors cursor-pointer"
+                    title="Limpiar todos los filtros"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Limpiar filtros</span>
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Selectores de Filtro */}
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              {/* Filtro Gerencia */}
-              <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200">
-                <span className="text-slate-500 font-semibold">Gerencia:</span>
-                <select
-                  value={filterGerencia}
-                  onChange={(e) => setFilterGerencia(e.target.value)}
-                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
-                >
-                  <option value="ALL">Todas ({planGerencias.length})</option>
-                  {planGerencias.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Chips de Filtros Activos (Estilo Excel) */}
+            {isAnyFilterActive && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1 flex items-center gap-1">
+                  <SlidersHorizontal className="w-3 h-3 text-blue-600" />
+                  Filtros activos:
+                </span>
 
-              {/* Filtro Colaborador */}
-              <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200">
-                <span className="text-slate-500 font-semibold">Asignado:</span>
-                <select
-                  value={filterColaborador}
-                  onChange={(e) => setFilterColaborador(e.target.value)}
-                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
-                >
-                  <option value="ALL">Todos ({collaboratorsSummary.length})</option>
-                  {collaboratorsSummary.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                {searchQuery && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-800 border border-blue-200">
+                    <span>Texto: &quot;{searchQuery}&quot;</span>
+                    <button type="button" onClick={() => setSearchQuery('')} className="hover:text-blue-900 cursor-pointer">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
 
-              {/* Filtro Tipo */}
-              <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200">
-                <span className="text-slate-500 font-semibold">Tipo:</span>
-                <select
-                  value={filterTipo}
-                  onChange={(e) => setFilterTipo(e.target.value)}
-                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
-                >
-                  <option value="ALL">Todos los tipos</option>
-                  <option value="NO_DIG_SI_AUTO">No Dig Sí Auto (100%)</option>
-                  <option value="NO_DIG_NO_AUTO">No Dig No Auto ({pctNoAutoThreshold}% s/total: {candidateActivities.noDigNoAutoSelected.length} act)</option>
-                  <option value="REQUERIMIENTO">Requerimientos Anuales</option>
-                  <option value="MANTENIMIENTO">Mantenimientos Preventivos</option>
-                </select>
-              </div>
+                {filterYears.length > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-50 text-indigo-800 border border-indigo-200">
+                    <span>Años: {filterYears.join(', ')}</span>
+                    <button type="button" onClick={() => setFilterYears([])} className="hover:text-indigo-900 cursor-pointer">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
 
-              {/* Filtro Año / Fase */}
-              <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200">
-                <span className="text-slate-500 font-semibold">Año:</span>
-                <select
-                  value={filterYear}
-                  onChange={(e) => setFilterYear(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
-                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
-                >
-                  <option value="ALL">Todos los años</option>
-                  {Array.from({ length: horizonYears }, (_, i) => i + 1).map((yr) => (
-                    <option key={yr} value={yr}>
-                      Año {yr}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                {filterGerencias.length > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-50 text-purple-800 border border-purple-200">
+                    <span>Gerencias: {filterGerencias.length} seleccionada(s)</span>
+                    <button type="button" onClick={() => setFilterGerencias([])} className="hover:text-purple-900 cursor-pointer">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
 
-              {(searchQuery || filterGerencia !== 'ALL' || filterColaborador !== 'ALL' || filterTipo !== 'ALL' || filterYear !== 'ALL') && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setFilterGerencia('ALL');
-                    setFilterColaborador('ALL');
-                    setFilterTipo('ALL');
-                    setFilterYear('ALL');
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold cursor-pointer"
-                >
-                  Limpiar
-                </button>
-              )}
-            </div>
+                {filterTipos.length > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span>Tipos: {filterTipos.length} seleccionado(s)</span>
+                    <button type="button" onClick={() => setFilterTipos([])} className="hover:text-emerald-900 cursor-pointer">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+
+                {filterColaboradores.length > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-cyan-50 text-cyan-800 border border-cyan-200">
+                    <span>Colaboradores: {filterColaboradores.length} seleccionado(s)</span>
+                    <button type="button" onClick={() => setFilterColaboradores([])} className="hover:text-cyan-900 cursor-pointer">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+
+                {filterColabRoles.length > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-800 border border-slate-300">
+                    <span>Rol: {filterColabRoles.join(', ')}</span>
+                    <button type="button" onClick={() => setFilterColabRoles([])} className="hover:text-slate-900 cursor-pointer">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+
+                {filterHoursRange !== 'ALL' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                    <span>
+                      Horas: {filterHoursRange === 'POR_DEFINIR' ? 'Por definir' : filterHoursRange === 'CON_HORAS' ? 'Con horas' : filterHoursRange === 'GT_30' ? '≥ 30h' : '≥ 60h'}
+                    </span>
+                    <button type="button" onClick={() => setFilterHoursRange('ALL')} className="hover:text-amber-900 cursor-pointer">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+
+                {filterSortPrio === 'DESC' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-800 border border-slate-300">
+                    <span>Orden: Prio descendente</span>
+                    <button type="button" onClick={() => setFilterSortPrio('ASC')} className="hover:text-slate-900 cursor-pointer">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Tabla de Actividades Asignadas */}
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
+          {/* Tabla de Actividades Asignadas con Encabezados Filtrables Tipo Excel */}
+          <div className="overflow-x-auto rounded-xl border border-slate-200 relative z-10">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
                 <tr>
-                  <th className="py-3 px-3 text-center">Prio</th>
-                  <th className="py-3 px-3 text-center">Año</th>
-                  <th className="py-3 px-3">Gerencia</th>
+                  {/* COL 1: PRIORIDAD (CON ORDENAMIENTO EXCEL) */}
+                  <th className="py-3 px-3 text-center relative w-20">
+                    <button
+                      type="button"
+                      onClick={() => setFilterSortPrio(filterSortPrio === 'ASC' ? 'DESC' : 'ASC')}
+                      className={`inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded transition-colors cursor-pointer ${
+                        filterSortPrio === 'DESC'
+                          ? 'bg-blue-600 text-white shadow-2xs'
+                          : 'hover:bg-slate-200 text-slate-700'
+                      }`}
+                      title={filterSortPrio === 'ASC' ? 'Orden: Menor a Mayor (Clic para invertir)' : 'Orden: Mayor a Menor (Clic para invertir)'}
+                    >
+                      <span>Prio</span>
+                      <ArrowUpDown className="w-3 h-3" />
+                    </button>
+                  </th>
+
+                  {/* COL 2: AÑO CALENDARIO (FILTRO EXCEL) */}
+                  <th className="py-3 px-3 text-center relative w-24">
+                    <button
+                      type="button"
+                      onClick={() => setOpenHeaderFilter(openHeaderFilter === 'year' ? null : 'year')}
+                      className={`inline-flex items-center justify-center gap-1 px-2 py-1 rounded transition-colors cursor-pointer ${
+                        filterYears.length > 0
+                          ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                          : 'hover:bg-slate-200 text-slate-700'
+                      }`}
+                      title="Filtrar por Año Calendario"
+                    >
+                      <span>Año</span>
+                      <Filter className="w-3 h-3" />
+                      {filterYears.length > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      )}
+                    </button>
+
+                    {/* Popover Excel para Año */}
+                    {openHeaderFilter === 'year' && (
+                      <div className="absolute left-0 top-full mt-1 w-52 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 text-left normal-case tracking-normal">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
+                          <span className="font-bold text-xs text-slate-900">Años Calendario</span>
+                          <button
+                            type="button"
+                            onClick={() => setOpenHeaderFilter(null)}
+                            className="text-slate-400 hover:text-slate-600"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                          {Array.from({ length: horizonYears }, (_, i) => toCalendarYear(i + 1)).map((yr) => {
+                            const isChecked = filterYears.includes(yr);
+                            const count = planActivities.filter((a) => toCalendarYear(a.assignedYear) === yr).length;
+                            return (
+                              <label
+                                key={yr}
+                                className="flex items-center justify-between gap-2 p-1.5 rounded hover:bg-slate-50 cursor-pointer text-xs"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => {
+                                      if (isChecked) {
+                                        setFilterYears(filterYears.filter((y) => y !== yr));
+                                      } else {
+                                        setFilterYears([...filterYears, yr]);
+                                      }
+                                    }}
+                                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  <span className="font-bold text-slate-800 font-mono">{yr}</span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-mono">({count})</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2 text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => setFilterYears(Array.from({ length: horizonYears }, (_, i) => toCalendarYear(i + 1)))}
+                            className="text-blue-600 hover:underline font-semibold cursor-pointer"
+                          >
+                            Todos
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFilterYears([])}
+                            className="text-slate-500 hover:underline cursor-pointer"
+                          >
+                            Limpiar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </th>
+
+                  {/* COL 3: GERENCIA (FILTRO EXCEL) */}
+                  <th className="py-3 px-3 relative w-48">
+                    <button
+                      type="button"
+                      onClick={() => setOpenHeaderFilter(openHeaderFilter === 'gerencia' ? null : 'gerencia')}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded transition-colors cursor-pointer ${
+                        filterGerencias.length > 0
+                          ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                          : 'hover:bg-slate-200 text-slate-700'
+                      }`}
+                      title="Filtrar por Gerencia"
+                    >
+                      <span>Gerencia</span>
+                      <Filter className="w-3 h-3" />
+                      {filterGerencias.length > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      )}
+                    </button>
+
+                    {/* Popover Excel para Gerencia */}
+                    {openHeaderFilter === 'gerencia' && (
+                      <div className="absolute left-0 top-full mt-1 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 text-left normal-case tracking-normal">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
+                          <span className="font-bold text-xs text-slate-900">Gerencias ({planGerencias.length})</span>
+                          <button
+                            type="button"
+                            onClick={() => setOpenHeaderFilter(null)}
+                            className="text-slate-400 hover:text-slate-600"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Buscador interno en lista de gerencias */}
+                        <div className="relative mb-2">
+                          <Search className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="Buscar gerencia..."
+                            value={columnSearchGerencia}
+                            onChange={(e) => setColumnSearchGerencia(e.target.value)}
+                            className="w-full pl-7 pr-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1 max-h-56 overflow-y-auto">
+                          {planGerencias
+                            .filter((g) => g.toLowerCase().includes(columnSearchGerencia.toLowerCase()))
+                            .map((g) => {
+                              const isChecked = filterGerencias.includes(g);
+                              const count = planActivities.filter((a) => a.gerencia === g).length;
+                              return (
+                                <label
+                                  key={g}
+                                  className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-50 cursor-pointer text-xs"
+                                >
+                                  <div className="flex items-center gap-2 truncate">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        if (isChecked) {
+                                          setFilterGerencias(filterGerencias.filter((item) => item !== g));
+                                        } else {
+                                          setFilterGerencias([...filterGerencias, g]);
+                                        }
+                                      }}
+                                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="truncate text-slate-800 font-medium" title={g}>
+                                      {g}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 font-mono shrink-0">
+                                    ({count})
+                                  </span>
+                                </label>
+                              );
+                            })}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2 text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => setFilterGerencias(planGerencias)}
+                            className="text-blue-600 hover:underline font-semibold cursor-pointer"
+                          >
+                            Todas
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFilterGerencias([])}
+                            className="text-slate-500 hover:underline cursor-pointer"
+                          >
+                            Limpiar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </th>
+
+                  {/* COL 4: ACTIVIDAD / TAREA */}
                   <th className="py-3 px-4">Actividad / Tarea</th>
-                  <th className="py-3 px-3">Tipo en Plan</th>
-                  <th className="py-3 px-3 text-right">Horas Manuales</th>
-                  <th className="py-3 px-4">Colaborador Asignado (Reasignable)</th>
+
+                  {/* COL 5: TIPO EN PLAN (FILTRO EXCEL) */}
+                  <th className="py-3 px-3 relative w-48">
+                    <button
+                      type="button"
+                      onClick={() => setOpenHeaderFilter(openHeaderFilter === 'tipo' ? null : 'tipo')}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded transition-colors cursor-pointer ${
+                        filterTipos.length > 0
+                          ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                          : 'hover:bg-slate-200 text-slate-700'
+                      }`}
+                      title="Filtrar por Tipo de Actividad"
+                    >
+                      <span>Tipo en Plan</span>
+                      <Filter className="w-3 h-3" />
+                      {filterTipos.length > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      )}
+                    </button>
+
+                    {/* Popover Excel para Tipo */}
+                    {openHeaderFilter === 'tipo' && (
+                      <div className="absolute left-0 top-full mt-1 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 text-left normal-case tracking-normal">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
+                          <span className="font-bold text-xs text-slate-900">Tipo en Plan</span>
+                          <button
+                            type="button"
+                            onClick={() => setOpenHeaderFilter(null)}
+                            className="text-slate-400 hover:text-slate-600"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          {[
+                            { id: 'NO_DIG_SI_AUTO', label: 'No Dig Sí Auto (100%)', color: 'text-emerald-700' },
+                            { id: 'NO_DIG_NO_AUTO', label: `No Dig No Auto (Por definir · ${pctNoAutoThreshold}%)`, color: 'text-amber-700' },
+                            { id: 'REQUERIMIENTO', label: 'Requerimientos Anuales', color: 'text-blue-700' },
+                            { id: 'MANTENIMIENTO', label: 'Mantenimientos Preventivos', color: 'text-purple-700' },
+                          ].map((t) => {
+                            const isChecked = filterTipos.includes(t.id);
+                            const count = planActivities.filter((a) => a.tipo === t.id).length;
+                            return (
+                              <label
+                                key={t.id}
+                                className="flex items-center justify-between gap-2 p-1.5 rounded hover:bg-slate-50 cursor-pointer text-xs"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => {
+                                      if (isChecked) {
+                                        setFilterTipos(filterTipos.filter((item) => item !== t.id));
+                                      } else {
+                                        setFilterTipos([...filterTipos, t.id]);
+                                      }
+                                    }}
+                                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  <span className={`font-semibold ${t.color}`}>{t.label}</span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-mono">({count})</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2 text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => setFilterTipos(['NO_DIG_SI_AUTO', 'NO_DIG_NO_AUTO', 'REQUERIMIENTO', 'MANTENIMIENTO'])}
+                            className="text-blue-600 hover:underline font-semibold cursor-pointer"
+                          >
+                            Todos
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFilterTipos([])}
+                            className="text-slate-500 hover:underline cursor-pointer"
+                          >
+                            Limpiar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </th>
+
+                  {/* COL 6: HORAS MANUALES (FILTRO EXCEL) */}
+                  <th className="py-3 px-3 text-right relative w-32">
+                    <button
+                      type="button"
+                      onClick={() => setOpenHeaderFilter(openHeaderFilter === 'hours' ? null : 'hours')}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded transition-colors cursor-pointer ${
+                        filterHoursRange !== 'ALL'
+                          ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                          : 'hover:bg-slate-200 text-slate-700'
+                      }`}
+                      title="Filtrar por Rango de Horas"
+                    >
+                      <span>Horas</span>
+                      <Filter className="w-3 h-3" />
+                      {filterHoursRange !== 'ALL' && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      )}
+                    </button>
+
+                    {/* Popover Excel para Horas */}
+                    {openHeaderFilter === 'hours' && (
+                      <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 text-left normal-case tracking-normal">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
+                          <span className="font-bold text-xs text-slate-900">Horas Manuales</span>
+                          <button
+                            type="button"
+                            onClick={() => setOpenHeaderFilter(null)}
+                            className="text-slate-400 hover:text-slate-600"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-1">
+                          {[
+                            { id: 'ALL', label: 'Todas las actividades' },
+                            { id: 'POR_DEFINIR', label: 'Por definir (No Dig No Auto)' },
+                            { id: 'CON_HORAS', label: 'Con horas cuantificadas' },
+                            { id: 'GT_30', label: 'Impacto Alto (≥ 30 h/mes)' },
+                            { id: 'GT_60', label: 'Impacto Crítico (≥ 60 h/mes)' },
+                          ].map((opt) => (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => {
+                                setFilterHoursRange(opt.id as any);
+                                setOpenHeaderFilter(null);
+                              }}
+                              className={`w-full text-left px-2.5 py-1.5 rounded text-xs transition-colors cursor-pointer flex items-center justify-between ${
+                                filterHoursRange === opt.id
+                                  ? 'bg-blue-50 text-blue-900 font-bold'
+                                  : 'hover:bg-slate-50 text-slate-700 font-medium'
+                              }`}
+                            >
+                              <span>{opt.label}</span>
+                              {filterHoursRange === opt.id && (
+                                <span className="text-blue-600">✓</span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </th>
+
+                  {/* COL 7: COLABORADOR ASIGNADO (FILTRO EXCEL) */}
+                  <th className="py-3 px-4 relative w-64">
+                    <button
+                      type="button"
+                      onClick={() => setOpenHeaderFilter(openHeaderFilter === 'colab' ? null : 'colab')}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded transition-colors cursor-pointer ${
+                        filterColaboradores.length > 0 || filterColabRoles.length > 0
+                          ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                          : 'hover:bg-slate-200 text-slate-700'
+                      }`}
+                      title="Filtrar por Colaborador y Rol"
+                    >
+                      <span>Colaborador Asignado</span>
+                      <Filter className="w-3 h-3" />
+                      {(filterColaboradores.length > 0 || filterColabRoles.length > 0) && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      )}
+                    </button>
+
+                    {/* Popover Excel para Colaborador */}
+                    {openHeaderFilter === 'colab' && (
+                      <div className="absolute right-0 top-full mt-1 w-80 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 text-left normal-case tracking-normal">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
+                          <span className="font-bold text-xs text-slate-900">Colaboradores ({collaboratorsSummary.length})</span>
+                          <button
+                            type="button"
+                            onClick={() => setOpenHeaderFilter(null)}
+                            className="text-slate-400 hover:text-slate-600"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Filtros rápidos por Rol */}
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {['Jefe Sr', 'Jefe', 'Especialista', 'Becario'].map((r) => {
+                            const isSelected = filterColabRoles.includes(r);
+                            return (
+                              <button
+                                key={r}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setFilterColabRoles(filterColabRoles.filter((item) => item !== r));
+                                  } else {
+                                    setFilterColabRoles([...filterColabRoles, r]);
+                                  }
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                }`}
+                              >
+                                {r}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Buscador interno de colaborador */}
+                        <div className="relative mb-2">
+                          <Search className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="Buscar por nombre..."
+                            value={columnSearchColab}
+                            onChange={(e) => setColumnSearchColab(e.target.value)}
+                            className="w-full pl-7 pr-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        {/* Lista de colaboradores con checkbox */}
+                        <div className="space-y-1 max-h-52 overflow-y-auto">
+                          {collaboratorsSummary
+                            .filter((c) => c.name.toLowerCase().includes(columnSearchColab.toLowerCase()))
+                            .map((c) => {
+                              const isChecked = filterColaboradores.includes(c.id);
+                              return (
+                                <label
+                                  key={c.id}
+                                  className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-50 cursor-pointer text-xs"
+                                >
+                                  <div className="flex items-center gap-2 truncate">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        if (isChecked) {
+                                          setFilterColaboradores(filterColaboradores.filter((id) => id !== c.id));
+                                        } else {
+                                          setFilterColaboradores([...filterColaboradores, c.id]);
+                                        }
+                                      }}
+                                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="truncate text-slate-800 font-semibold">{c.name}</span>
+                                    <span className="text-[10px] text-slate-400 shrink-0 font-normal">({c.role})</span>
+                                  </div>
+                                  <span className="text-[10px] text-slate-500 font-mono font-bold shrink-0">
+                                    {c.assignedCount} act
+                                  </span>
+                                </label>
+                              );
+                            })}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2 text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => setFilterColaboradores(collaboratorsSummary.map((c) => c.id))}
+                            className="text-blue-600 hover:underline font-semibold cursor-pointer"
+                          >
+                            Todos
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFilterColaboradores([]);
+                              setFilterColabRoles([]);
+                            }}
+                            className="text-slate-500 hover:underline cursor-pointer"
+                          >
+                            Limpiar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/80">
-                {filteredActivities.slice(0, 100).map((act) => {
+                {(pageSize === 'ALL'
+                  ? filteredActivities
+                  : filteredActivities.slice(0, pageSize)
+                ).map((act) => {
+                  const isPending = act.tipo === 'NO_DIG_NO_AUTO' || (act as any).isPendingDefinition;
+
                   return (
                     <tr
                       key={act.id}
@@ -1767,45 +3158,85 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                       </td>
 
                       <td className="py-2.5 px-3 text-center">
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-200 text-slate-800 font-mono">
-                          Año {act.assignedYear}
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-900 font-mono border border-blue-200">
+                          {toCalendarYear(act.assignedYear)}
                         </span>
                       </td>
 
                       <td className="py-2.5 px-3">
-                        <span
-                          className={`font-semibold ${
-                            act.isNomina ? 'text-blue-900 font-bold' : 'text-slate-800'
-                          }`}
-                        >
-                          {act.gerencia}
-                        </span>
+                        <div className="flex flex-col">
+                          <span
+                            className={`font-semibold ${
+                              act.isNomina ? 'text-blue-900 font-bold' : 'text-slate-800'
+                            }`}
+                          >
+                            {act.gerencia}
+                          </span>
+                          {act.gerenciaInitialPct !== undefined && (
+                            <span className="text-[10px] text-slate-500 font-mono mt-0.5">
+                              Base: <strong className={act.gerenciaInitialPct < levelingTargetPct ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold'}>{act.gerenciaInitialPct}%</strong> auto
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-2.5 px-4 max-w-md">
-                        <div className="font-semibold text-slate-900 leading-snug">
-                          {act.actividadProceso}
+                        <div className="font-semibold text-slate-900 leading-snug flex items-center gap-1.5 flex-wrap">
+                          <span>{act.actividadProceso}</span>
+                          {isPending && (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                              Por evaluar
+                            </span>
+                          )}
                         </div>
                       </td>
 
                       <td className="py-2.5 px-3">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
-                            act.tipo === 'NO_DIG_SI_AUTO'
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                              : act.tipo === 'NO_DIG_NO_AUTO'
-                              ? 'bg-amber-50 text-amber-800 border-amber-200'
-                              : act.tipo === 'REQUERIMIENTO'
-                              ? 'bg-blue-50 text-blue-800 border-blue-200'
-                              : 'bg-purple-50 text-purple-800 border-purple-200'
-                          }`}
-                        >
-                          {act.tipoLabel}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-medium border inline-block ${
+                              act.tipo === 'NO_DIG_SI_AUTO'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                : act.tipo === 'NO_DIG_NO_AUTO'
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : act.tipo === 'REQUERIMIENTO'
+                                ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                : 'bg-purple-50 text-purple-800 border-purple-200'
+                            }`}
+                          >
+                            {act.tipoLabel}
+                          </span>
+                          {act.levelingTier === 'NIVELACION_SUB_80' && (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">
+                              🎯 Nivelación (&lt; {levelingTargetPct}%)
+                            </span>
+                          )}
+                          {act.levelingTier === 'CONSOLIDACION_SUPER_80' && (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                              ✨ Consolidación (≥ {levelingTargetPct}%)
+                            </span>
+                          )}
+                          {act.levelingTier === 'EVALUACION_NO_AUTO' && (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1">
+                              🔍 Cupo No Auto
+                            </span>
+                          )}
+                          {act.levelingTier === 'OPERATIVO' && (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1">
+                              ⚙️ Operativo
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                        {formatHours(act.horasManualesMensuales)} h
+                        {isPending ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                            Por definir
+                          </span>
+                        ) : (
+                          `${formatHours(act.horasManualesMensuales)} h`
+                        )}
                       </td>
 
                       <td className="py-2.5 px-4">
@@ -1820,7 +3251,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                           <select
                             value={act.colaboradorAsignadoId}
                             onChange={(e) => handleReassignActivity(act.id, e.target.value)}
-                            className="w-full max-w-xs text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                            className="w-full max-w-xs text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-2xs"
                           >
                             {collaboratorsSummary.map((c) => (
                               <option key={c.id} value={c.id}>
@@ -1837,22 +3268,32 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
             </table>
           </div>
 
-          {filteredActivities.length > 100 && (
-            <div className="text-center text-xs text-slate-500 py-2">
-              Mostrando las primeras 100 de {filteredActivities.length} actividades filtradas. Descarga el archivo Excel para ver el inventario completo.
+          {pageSize !== 'ALL' && filteredActivities.length > pageSize && (
+            <div className="flex items-center justify-between text-xs text-slate-500 pt-2 px-1">
+              <span>
+                Mostrando las primeras <strong>{pageSize}</strong> de <strong>{filteredActivities.length}</strong> actividades filtradas.
+              </span>
+              <button
+                type="button"
+                onClick={() => setPageSize('ALL')}
+                className="text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer"
+              >
+                Ver todas ({filteredActivities.length})
+              </button>
             </div>
           )}
         </div>
       )}
 
       {/* ------------------------------------------------------------- */}
-      {/* VISTA 3: CRONOGRAMA POR AÑOS / FASES */}
+      {/* VISTA 3: CRONOGRAMA POR AÑOS / FASES (2027, 2028, 2029...) */}
       {/* ------------------------------------------------------------- */}
       {activeTab === 'cronograma' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {Array.from({ length: horizonYears }, (_, idx) => {
               const yearNum = idx + 1;
+              const calYear = toCalendarYear(yearNum);
               const yearActs = planActivities.filter((a) => a.assignedYear === yearNum);
               const yearHours = yearActs.reduce((acc, a) => acc + a.horasManualesMensuales, 0);
 
@@ -1864,14 +3305,14 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div>
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase bg-blue-100 text-blue-900 font-mono">
-                        Año {yearNum}
+                        {calYear}
                       </span>
                       <h4 className="text-sm font-bold text-slate-900 mt-1">
                         {yearNum === 1
-                          ? 'Fase 1: Quick Wins y Mayor Impacto'
+                          ? `Fase ${calYear}: Quick Wins y Mayor Impacto`
                           : yearNum === 2
-                          ? 'Fase 2: Consolidación y Optimización'
-                          : 'Fase 3: Cierre de Complejidad y No Autom.'}
+                          ? `Fase ${calYear}: Consolidación y Optimización`
+                          : `Fase ${calYear}: Cierre de Complejidad y No Autom.`}
                       </h4>
                     </div>
                     <div className="text-right">
@@ -1886,7 +3327,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
 
                   <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/80 space-y-1 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Horas a Liberar:</span>
+                      <span className="text-slate-600">Horas a Liberar (definidas):</span>
                       <strong className="font-mono text-slate-900">{formatHours(yearHours)} h/mes</strong>
                     </div>
                     <div className="flex justify-between">
@@ -1905,7 +3346,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
 
                   <div className="space-y-2">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                      Desglose de Actividades del Año:
+                      Desglose de Actividades de {calYear}:
                     </span>
                     <div className="space-y-1.5 text-xs">
                       <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-50/60 border border-emerald-200/60">
@@ -1915,7 +3356,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                         </strong>
                       </div>
                       <div className="flex items-center justify-between p-2 rounded-lg bg-amber-50/60 border border-amber-200/60">
-                        <span className="text-amber-900 font-medium">No Dig No Auto</span>
+                        <span className="text-amber-900 font-medium">No Dig No Auto (Por definir)</span>
                         <strong className="font-mono font-bold text-amber-800">
                           {yearActs.filter((a) => a.tipo === 'NO_DIG_NO_AUTO').length}
                         </strong>

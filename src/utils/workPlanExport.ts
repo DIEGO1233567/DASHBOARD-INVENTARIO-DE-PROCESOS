@@ -28,6 +28,10 @@ export interface PlanActivity {
   assignedYear: number;
   prioridad: number;
   isNomina: boolean;
+  isPendingDefinition?: boolean;
+  gerenciaInitialPct?: number;
+  gerenciaSimPct?: number;
+  levelingTier?: string;
 }
 
 export interface PlanScenarioConfig {
@@ -37,6 +41,8 @@ export interface PlanScenarioConfig {
   becarioMonthlyCapacity: number;
   especialistaMonthlyCapacity: number;
   pctNoAutoToInclude: number;
+  includeNoAutoActivities?: boolean;
+  levelingTargetPct?: number;
   anualRequerimientos: number;
   anualMantenimientos: number;
   totalActividades: number;
@@ -90,8 +96,10 @@ export async function exportWorkPlanSimulationXlsx(
   sheetSummary.getRow(2).height = 36;
 
   sheetSummary.mergeCells('B3:H3');
+  const startCalYear = 2027;
+  const endCalYear = startCalYear + config.years - 1;
   const subTitleCell = sheetSummary.getCell('B3');
-  subTitleCell.value = `Horizonte del Plan: ${config.years} Años (${config.monthsTotal} Meses) | Viabilidad: ${config.esViable ? 'VIABLE (SUPERÁVIT)' : 'REQUIERE AJUSTE (DÉFICIT)'}`;
+  subTitleCell.value = `Horizonte del Plan: ${startCalYear} a ${endCalYear} (${config.years} Años · ${config.monthsTotal} Meses) | Viabilidad: ${config.esViable ? 'VIABLE (SUPERÁVIT)' : 'REQUIERE AJUSTE (DÉFICIT)'}`;
   subTitleCell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: config.esViable ? 'FF10B981' : 'FFF43F5E' } };
   subTitleCell.fill = {
     type: 'pattern',
@@ -108,9 +116,9 @@ export async function exportWorkPlanSimulationXlsx(
   const kpis = [
     ['Total Actividades a Distribuir', `${formatThousands(config.totalActividades)} actividades`],
     ['Total Horas Manuales a Liberar', `${formatHours(config.totalHorasManuales)} h/mes (${formatThousands(config.totalHorasManuales / 152, 1)} FTE)`],
-    ['Capacidad Total del Equipo', `${formatThousands(config.capacidadTotalEquipo)} actividades en ${config.years} años`],
+    ['Capacidad Total del Equipo', `${formatThousands(config.capacidadTotalEquipo)} actividades en ${config.years} años (${startCalYear}-${endCalYear})`],
     ['Balance de Capacidad', `${config.balanceActividades >= 0 ? '+' : ''}${formatThousands(config.balanceActividades)} actividades (${config.esViable ? 'Superávit' : 'Déficit'})`],
-    ['Plazo de Ejecución', `${config.years} Años (${config.monthsTotal} Meses)`],
+    ['Plazo de Ejecución Calendario', `${startCalYear} a ${endCalYear} (${config.years} Años · ${config.monthsTotal} Meses)`],
     ['Requerimientos y Mantenimientos Totales', `${config.anualRequerimientos * config.years} reqs + ${config.anualMantenimientos * config.years} mants`],
     ['Regla Especial de Nómina', 'Asignada exclusivamente a Daniel García Velázquez'],
   ];
@@ -207,16 +215,18 @@ export async function exportWorkPlanSimulationXlsx(
   sheetActivities.columns = [
     { width: 4 },  // A
     { width: 10 }, // B Prioridad
-    { width: 10 }, // C Año Fase
+    { width: 12 }, // C Año Calendario
     { width: 28 }, // D Gerencia
     { width: 48 }, // E Actividad / Tarea
     { width: 28 }, // F Tipo / Clasificación
-    { width: 18 }, // G Horas Manuales/Mes
-    { width: 32 }, // H Colaborador Asignado
-    { width: 18 }, // I Rol Colaborador
+    { width: 24 }, // G Tier de Nivelación (80%)
+    { width: 18 }, // H Horas Manuales/Mes
+    { width: 32 }, // I Colaborador Asignado
+    { width: 18 }, // J Rol Colaborador
+    { width: 14 }, // K % Base Gerencia
   ];
 
-  sheetActivities.mergeCells('B2:I2');
+  sheetActivities.mergeCells('B2:K2');
   const actHeader = sheetActivities.getCell('B2');
   actHeader.value = 'CATÁLOGO DE ACTIVIDADES ASIGNADAS Y CRONOGRAMA';
   actHeader.font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -227,22 +237,24 @@ export async function exportWorkPlanSimulationXlsx(
   const actTableStart = 4;
   const actCols = [
     'Prioridad',
-    'Año / Fase',
+    'Año',
     'Gerencia',
     'Actividad / Proceso',
     'Clasificación en Plan',
+    'Estrategia Nivelación',
     'Horas Manuales / Mes',
     'Colaborador Asignado',
     'Rol del Asignado',
+    '% Base Gerencia',
   ];
 
   actCols.forEach((h, i) => {
-    const colLetter = String.fromCharCode(66 + i); // B to I
+    const colLetter = String.fromCharCode(66 + i); // B to K
     const cell = sheetActivities.getCell(`${colLetter}${actTableStart}`);
     cell.value = h;
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } }; // Teal 700
-    cell.alignment = { horizontal: i === 0 || i === 1 || i === 5 ? 'center' : 'left', vertical: 'middle' };
+    cell.alignment = { horizontal: i === 0 || i === 1 || i === 6 || i === 9 ? 'center' : 'left', vertical: 'middle' };
   });
   sheetActivities.getRow(actTableStart).height = 22;
 
@@ -252,7 +264,8 @@ export async function exportWorkPlanSimulationXlsx(
     sheetActivities.getCell(`B${rowNum}`).value = act.prioridad;
     sheetActivities.getCell(`B${rowNum}`).alignment = { horizontal: 'center' };
 
-    sheetActivities.getCell(`C${rowNum}`).value = `Año ${act.assignedYear}`;
+    const calYear = 2026 + act.assignedYear; // Year 1 -> 2027, Year 2 -> 2028, etc.
+    sheetActivities.getCell(`C${rowNum}`).value = calYear;
     sheetActivities.getCell(`C${rowNum}`).alignment = { horizontal: 'center' };
     sheetActivities.getCell(`C${rowNum}`).font = { bold: true };
 
@@ -262,19 +275,45 @@ export async function exportWorkPlanSimulationXlsx(
 
     sheetActivities.getCell(`F${rowNum}`).value = act.tipoLabel;
 
-    sheetActivities.getCell(`G${rowNum}`).value = act.horasManualesMensuales;
-    sheetActivities.getCell(`G${rowNum}`).alignment = { horizontal: 'right' };
+    // Col G: Tier Nivelación
+    const tierLabel =
+      act.levelingTier === 'NIVELACION_SUB_80'
+        ? 'Nivelación (< 80%)'
+        : act.levelingTier === 'CONSOLIDACION_SUPER_80'
+        ? 'Consolidación (≥ 80%)'
+        : act.levelingTier === 'EVALUACION_NO_AUTO'
+        ? 'Cupo No Auto [Por Evaluar]'
+        : 'Operativo';
+    sheetActivities.getCell(`G${rowNum}`).value = tierLabel;
+    sheetActivities.getCell(`G${rowNum}`).alignment = { horizontal: 'center' };
 
-    sheetActivities.getCell(`H${rowNum}`).value = act.colaboradorAsignadoNombre;
-    sheetActivities.getCell(`H${rowNum}`).font = {
+    // Col H: Horas
+    if (act.tipo === 'NO_DIG_NO_AUTO' || act.isPendingDefinition) {
+      sheetActivities.getCell(`H${rowNum}`).value = 'Por definir';
+      sheetActivities.getCell(`H${rowNum}`).alignment = { horizontal: 'center' };
+      sheetActivities.getCell(`H${rowNum}`).font = { italic: true, color: { argb: 'FFB45309' } };
+    } else {
+      sheetActivities.getCell(`H${rowNum}`).value = act.horasManualesMensuales;
+      sheetActivities.getCell(`H${rowNum}`).alignment = { horizontal: 'right' };
+    }
+
+    // Col I: Colaborador
+    sheetActivities.getCell(`I${rowNum}`).value = act.colaboradorAsignadoNombre;
+    sheetActivities.getCell(`I${rowNum}`).font = {
       bold: act.isNomina,
       color: { argb: act.isNomina ? 'FF1E3A8A' : 'FF0F172A' },
     };
 
-    sheetActivities.getCell(`I${rowNum}`).value = act.colaboradorAsignadoRol;
+    // Col J: Rol
+    sheetActivities.getCell(`J${rowNum}`).value = act.colaboradorAsignadoRol;
+
+    // Col K: % Base Gerencia
+    sheetActivities.getCell(`K${rowNum}`).value =
+      act.gerenciaInitialPct !== undefined ? `${act.gerenciaInitialPct}%` : 'N/D';
+    sheetActivities.getCell(`K${rowNum}`).alignment = { horizontal: 'center' };
 
     const rowBg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
-    for (let col = 66; col <= 73; col++) {
+    for (let col = 66; col <= 75; col++) {
       const cell = sheetActivities.getCell(`${String.fromCharCode(col)}${rowNum}`);
       if (!cell.fill || (cell.fill as any).type !== 'pattern') {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
