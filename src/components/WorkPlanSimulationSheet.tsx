@@ -1164,25 +1164,25 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
       {/* ------------------------------------------------------------- */}
       {/* BANNER PRINCIPAL & CONTROL DE ESCENARIO INTERACTIVO */}
       {/* ------------------------------------------------------------- */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
-        {/* Glow de fondo decorativo */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-white border-2 border-slate-200/90 rounded-2xl p-6 text-slate-900 shadow-sm relative overflow-hidden">
+        {/* Glow de fondo decorativo muy sutil */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100/40 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-indigo-100/40 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2 max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-xs font-semibold">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Simulador Interactivo de Capacidad y Plan de Trabajo</span>
             </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
               Hoja 3: Distribución del Plan de Automatización
             </h2>
-            <p className="text-slate-300 text-xs md:text-sm leading-relaxed">
+            <p className="text-slate-600 text-xs md:text-sm leading-relaxed">
               Distribución estratégica y concurrente para el{' '}
-              <strong className="text-white">Equipo de Eficiencia de Procesos</strong>. Atención simultánea de todas las gerencias desde el primer año, priorizando con mayor intensidad aquellas con menor nivel de automatización hasta nivelar al{' '}
-              <strong className="text-rose-300 font-bold">{levelingTargetPct}%</strong>, con portafolios multigerencia balanceados por colaborador y exclusividad de{' '}
-              <strong className="text-blue-400 font-bold">Daniel García Velázquez</strong> en Nómina.
+              <strong className="text-slate-900 font-bold">Equipo de Eficiencia de Procesos</strong>. Atención simultánea de todas las gerencias desde el primer año, priorizando con mayor intensidad aquellas con menor nivel de automatización hasta nivelar al{' '}
+              <strong className="text-rose-600 font-bold">{levelingTargetPct}%</strong>, con portafolios multigerencia balanceados por colaborador y exclusividad de{' '}
+              <strong className="text-blue-600 font-bold">Daniel García Velázquez</strong> en Nómina.
             </p>
           </div>
 
@@ -1191,7 +1191,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
             <button
               type="button"
               onClick={handleAutoAdjustPace}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition-all cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all cursor-pointer"
               title="Calcula automáticamente el ritmo mensual necesario por especialista para cumplir el plan en los años fijados"
             >
               <Zap className="w-4 h-4 text-amber-300" />
@@ -1201,10 +1201,10 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
             <button
               type="button"
               onClick={handleResetBaseline}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs transition-all cursor-pointer"
               title="Restablecer los valores iniciales (3 años, 1 act/mes jefes y becarios, equipo de 15)"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-4 h-4 text-slate-500" />
               <span>Restablecer</span>
             </button>
 
@@ -1212,7 +1212,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               type="button"
               onClick={handleExportPlanXlsx}
               disabled={isExporting}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all cursor-pointer disabled:opacity-60"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all cursor-pointer disabled:opacity-60"
             >
               <FileSpreadsheet className="w-4 h-4" />
               <span>{isExporting ? 'Generando Excel...' : 'Descargar Plan .xlsx'}</span>
@@ -1223,21 +1223,21 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
         {/* ------------------------------------------------------------- */}
         {/* BARRA DE PARÁMETROS DINÁMICOS DEL ESCENARIO (8 CONTROLES INDEPENDIENTES) */}
         {/* ------------------------------------------------------------- */}
-        <div className="relative z-10 mt-6 pt-6 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="relative z-10 mt-6 pt-6 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           {/* Parámetro 1: Plazo en Años Calendario */}
-          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+          <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl p-3.5 space-y-2 flex flex-col justify-between hover:border-slate-300 transition-all shadow-2xs">
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-blue-600" />
                   Plazo del Plan:
                 </span>
-                <span className="font-mono font-black text-blue-400 text-sm">
+                <span className="font-mono font-black text-blue-600 text-sm">
                   {horizonYears} {horizonYears === 1 ? 'Año' : 'Años'}
                 </span>
               </div>
-              <div className="text-[11px] font-mono text-slate-400">
-                Calendario: <strong className="text-white font-bold">{BASE_PLAN_START_YEAR} a {toCalendarYear(horizonYears)}</strong> ({totalMonths} meses)
+              <div className="text-[11px] font-mono text-slate-500">
+                Calendario: <strong className="text-slate-800 font-bold">{BASE_PLAN_START_YEAR} a {toCalendarYear(horizonYears)}</strong> ({totalMonths} meses)
               </div>
             </div>
             <input
@@ -1247,29 +1247,29 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               step={1}
               value={horizonYears}
               onChange={(e) => setHorizonYears(Number(e.target.value))}
-              className="w-full accent-blue-500 cursor-pointer"
+              className="w-full accent-blue-600 cursor-pointer"
             />
-            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
               <span>2027 (1a)</span>
-              <span>2029 (Meta 3a)</span>
+              <span className="text-blue-700 font-bold">2029 (Meta 3a)</span>
               <span>2031 (5a)</span>
             </div>
           </div>
 
           {/* Parámetro 2: Ritmo Jefes (Jefe Sr y Jefe) - INDEPENDIENTE */}
-          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+          <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl p-3.5 space-y-2 flex flex-col justify-between hover:border-slate-300 transition-all shadow-2xs">
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300 flex items-center gap-1.5" title="Capacidad mensual para Jefes Sr y Jefes (máximo reglamentario: 1/mes)">
-                  <Users className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5" title="Capacidad mensual para Jefes Sr y Jefes (máximo reglamentario: 1/mes)">
+                  <Users className="w-3.5 h-3.5 text-indigo-600" />
                   Capacidad Jefes:
                 </span>
-                <span className="font-mono font-black text-indigo-300 text-sm">
+                <span className="font-mono font-black text-indigo-600 text-sm">
                   {jefeCapacityRate} act/mes
                 </span>
               </div>
-              <div className="text-[11px] text-slate-400">
-                3 Jefes = <strong className="text-indigo-200 font-mono font-bold">{(3 * jefeCapacityRate * totalMonths).toFixed(0)} act</strong> ({horizonYears}a)
+              <div className="text-[11px] text-slate-500">
+                3 Jefes = <strong className="text-indigo-700 font-mono font-bold">{(3 * jefeCapacityRate * totalMonths).toFixed(0)} act</strong> ({horizonYears}a)
               </div>
             </div>
             <input
@@ -1279,29 +1279,29 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               step={0.1}
               value={jefeCapacityRate}
               onChange={(e) => setJefeCapacityRate(Number(e.target.value))}
-              className="w-full accent-indigo-500 cursor-pointer"
+              className="w-full accent-indigo-600 cursor-pointer"
             />
-            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
               <span>0.2/m</span>
-              <span className="text-indigo-300 font-bold">1.0/m (Regla)</span>
+              <span className="text-indigo-700 font-bold">1.0/m (Regla)</span>
               <span>2.0/m</span>
             </div>
           </div>
 
           {/* Parámetro 3: Ritmo Becarios - INDEPENDIENTE */}
-          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+          <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl p-3.5 space-y-2 flex flex-col justify-between hover:border-slate-300 transition-all shadow-2xs">
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300 flex items-center gap-1.5" title="Capacidad mensual para Becarios (máximo reglamentario: 1/mes)">
-                  <Users className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5" title="Capacidad mensual para Becarios (máximo reglamentario: 1/mes)">
+                  <Users className="w-3.5 h-3.5 text-cyan-600" />
                   Capacidad Becarios:
                 </span>
-                <span className="font-mono font-black text-cyan-300 text-sm">
+                <span className="font-mono font-black text-cyan-600 text-sm">
                   {becarioCapacityRate} act/mes
                 </span>
               </div>
-              <div className="text-[11px] text-slate-400">
-                3 Becarios = <strong className="text-cyan-200 font-mono font-bold">{(3 * becarioCapacityRate * totalMonths).toFixed(0)} act</strong> ({horizonYears}a)
+              <div className="text-[11px] text-slate-500">
+                3 Becarios = <strong className="text-cyan-700 font-mono font-bold">{(3 * becarioCapacityRate * totalMonths).toFixed(0)} act</strong> ({horizonYears}a)
               </div>
             </div>
             <input
@@ -1311,29 +1311,29 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               step={0.1}
               value={becarioCapacityRate}
               onChange={(e) => setBecarioCapacityRate(Number(e.target.value))}
-              className="w-full accent-cyan-500 cursor-pointer"
+              className="w-full accent-cyan-600 cursor-pointer"
             />
-            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
               <span>0.2/m</span>
-              <span className="text-cyan-300 font-bold">1.0/m (Regla)</span>
+              <span className="text-cyan-700 font-bold">1.0/m (Regla)</span>
               <span>2.0/m</span>
             </div>
           </div>
 
           {/* Parámetro 4: Ritmo Especialistas */}
-          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+          <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl p-3.5 space-y-2 flex flex-col justify-between hover:border-slate-300 transition-all shadow-2xs">
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                  <Briefcase className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-emerald-600" />
                   Especialistas:
                 </span>
-                <span className="font-mono font-black text-emerald-400 text-sm">
+                <span className="font-mono font-black text-emerald-600 text-sm">
                   {especialistaCapacityRate} act/mes
                 </span>
               </div>
-              <div className="text-[11px] text-slate-400">
-                {teamMembers.filter((m) => m.role === 'Especialista').length} Especialistas = <strong className="text-emerald-200 font-mono font-bold">{(teamMembers.filter((m) => m.role === 'Especialista').length * especialistaCapacityRate * totalMonths).toFixed(0)} act</strong>
+              <div className="text-[11px] text-slate-500">
+                {teamMembers.filter((m) => m.role === 'Especialista').length} Especialistas = <strong className="text-emerald-700 font-mono font-bold">{(teamMembers.filter((m) => m.role === 'Especialista').length * especialistaCapacityRate * totalMonths).toFixed(0)} act</strong>
               </div>
             </div>
             <input
@@ -1343,26 +1343,25 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               step={0.1}
               value={especialistaCapacityRate}
               onChange={(e) => setEspecialistaCapacityRate(Number(e.target.value))}
-              className="w-full accent-emerald-500 cursor-pointer"
+              className="w-full accent-emerald-600 cursor-pointer"
             />
-            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
               <span>0.5/m</span>
-              <span className="text-emerald-300 font-bold">1.5/m (Base)</span>
+              <span className="text-emerald-700 font-bold">1.5/m (Base)</span>
               <span>3.0/m</span>
             </div>
           </div>
 
           {/* Parámetro 5: No Digitalizadas No Automatizables (Toggle Dinámico + % de Cupo) */}
-          {/* Parámetro 5: No Digitalizadas No Automatizables (Toggle Dinámico + % de Cupo sobre Total Hoja 2) */}
           <div className={`border rounded-xl p-3.5 space-y-2.5 transition-all flex flex-col justify-between ${
             includeNoAutoActivities
-              ? 'bg-slate-800/90 border-amber-500/50'
-              : 'bg-slate-900/90 border-slate-800 opacity-80'
+              ? 'bg-amber-50/60 border-amber-300 shadow-2xs'
+              : 'bg-slate-50 border-slate-200 opacity-80'
           }`}>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-amber-400" />
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-amber-600" />
                   No Dig / No Auto:
                 </span>
                 {/* Switch dinámico para activar o desactivar */}
@@ -1371,8 +1370,8 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                   onClick={() => setIncludeNoAutoActivities(!includeNoAutoActivities)}
                   className={`px-2 py-0.5 rounded text-[10px] font-black uppercase transition-all cursor-pointer ${
                     includeNoAutoActivities
-                      ? 'bg-amber-400 text-slate-950 font-bold shadow-xs'
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      ? 'bg-amber-500 text-white font-bold shadow-xs'
+                      : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
                   }`}
                   title={includeNoAutoActivities ? 'Haz clic para desactivar inclusión de No Auto en el plan' : 'Haz clic para activar inclusión de No Auto en el plan'}
                 >
@@ -1382,32 +1381,32 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
 
               {includeNoAutoActivities ? (
                 <div className="space-y-1">
-                  <div className="text-[11px] text-amber-300 font-mono flex items-center justify-between">
+                  <div className="text-[11px] text-amber-800 font-mono flex items-center justify-between">
                     <span>
                       Cupo: <strong className="font-bold">{pctNoAutoThreshold}% s/total Hoja 2</strong>
                     </span>
-                    <span className="bg-amber-400/20 text-amber-200 px-1.5 py-0.5 rounded text-[10px] font-bold border border-amber-400/40">
+                    <span className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-[10px] font-bold border border-amber-300">
                       {candidateActivities.noDigNoAutoSelected.length} act [Por Definir]
                     </span>
                   </div>
 
-                  <div className="text-[10px] text-slate-400 flex items-center justify-between bg-slate-900/60 p-1.5 rounded-lg border border-slate-700/60">
+                  <div className="text-[10px] text-slate-600 flex items-center justify-between bg-white p-1.5 rounded-lg border border-slate-200">
                     <span>Base total Hoja 2:</span>
-                    <strong className="text-white font-mono">
+                    <strong className="text-slate-900 font-mono font-bold">
                       {formatThousands(totalHoja2Activities)} actividades
                     </strong>
                   </div>
 
                   {/* Selector interactivo de base de Hoja 2 si se desea auditar la métrica */}
                   <div className="flex items-center gap-1 pt-0.5 text-[9px]">
-                    <span className="text-slate-400">Base:</span>
+                    <span className="text-slate-500">Base:</span>
                     <button
                       type="button"
                       onClick={() => setHoja2CalculationBase('STATUS_TOTAL')}
                       className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
                         hoja2CalculationBase === 'STATUS_TOTAL'
-                          ? 'bg-amber-500 text-slate-950 font-bold'
-                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                          ? 'bg-amber-500 text-white font-bold'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'
                       }`}
                       title="Métrica oficial de Hoja 2 (Suma de los 4 cuadrantes de estatus)"
                     >
@@ -1418,8 +1417,8 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                       onClick={() => setHoja2CalculationBase('RECORDS_TOTAL')}
                       className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
                         hoja2CalculationBase === 'RECORDS_TOTAL'
-                          ? 'bg-amber-500 text-slate-950 font-bold'
-                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                          ? 'bg-amber-500 text-white font-bold'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'
                       }`}
                       title="Total de registros de actividades en el inventario"
                     >
@@ -1430,8 +1429,8 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                       onClick={() => setHoja2CalculationBase('BASE_UNIQUE')}
                       className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
                         hoja2CalculationBase === 'BASE_UNIQUE'
-                          ? 'bg-amber-500 text-slate-950 font-bold'
-                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                          ? 'bg-amber-500 text-white font-bold'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'
                       }`}
                       title="Actividades base únicas por gerencia"
                     >
@@ -1440,7 +1439,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                   </div>
                 </div>
               ) : (
-                <div className="text-[11px] text-slate-400 italic">
+                <div className="text-[11px] text-slate-500 italic">
                   Desactivadas (0 act en el plan)
                 </div>
               )}
@@ -1457,9 +1456,9 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                   onChange={(e) => setPctNoAutoThreshold(Number(e.target.value))}
                   className="w-full accent-amber-500 cursor-pointer"
                 />
-                <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                <div className="flex justify-between text-[10px] text-slate-500 font-mono">
                   <span>5%</span>
-                  <span className="text-amber-300 font-bold">
+                  <span className="text-amber-700 font-bold">
                     20% ({Math.round(totalHoja2Activities * 0.20)} act)
                   </span>
                   <span>40%</span>
@@ -1469,7 +1468,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               <button
                 type="button"
                 onClick={() => setIncludeNoAutoActivities(true)}
-                className="w-full py-1 text-[11px] font-bold text-amber-300 bg-amber-950/40 border border-amber-500/30 rounded-lg hover:bg-amber-900/40 transition-colors text-center cursor-pointer"
+                className="w-full py-1 text-[11px] font-bold text-amber-700 bg-amber-100/80 border border-amber-300 rounded-lg hover:bg-amber-200/80 transition-colors text-center cursor-pointer"
               >
                 + Activar Cupo No Auto
               </button>
@@ -1477,19 +1476,19 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
           </div>
 
           {/* Parámetro 6: Meta de Nivelación de Gerencias (80%) */}
-          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+          <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl p-3.5 space-y-2 flex flex-col justify-between hover:border-slate-300 transition-all shadow-2xs">
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300 flex items-center gap-1.5" title="Prioriza gerencias con menor % de automatización de mayor a menor horas hasta alcanzar esta meta">
-                  <Target className="w-3.5 h-3.5 text-rose-400" />
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5" title="Prioriza gerencias con menor % de automatización de mayor a menor horas hasta alcanzar esta meta">
+                  <Target className="w-3.5 h-3.5 text-rose-600" />
                   Meta Nivelación:
                 </span>
-                <span className="font-mono font-black text-rose-300 text-sm">
+                <span className="font-mono font-black text-rose-600 text-sm">
                   {levelingTargetPct}% auto
                 </span>
               </div>
-              <div className="text-[11px] text-slate-400">
-                Prioriza &lt; <strong className="text-rose-200 font-mono">{levelingTargetPct}%</strong> de mayor a menor horas
+              <div className="text-[11px] text-slate-500">
+                Prioriza &lt; <strong className="text-rose-700 font-mono font-bold">{levelingTargetPct}%</strong> de mayor a menor horas
               </div>
             </div>
             <input
@@ -1501,28 +1500,28 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               onChange={(e) => setLevelingTargetPct(Number(e.target.value))}
               className="w-full accent-rose-500 cursor-pointer"
             />
-            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
               <span>60%</span>
-              <span className="text-rose-300 font-bold">80% (Meta)</span>
+              <span className="text-rose-700 font-bold">80% (Meta)</span>
               <span>90%</span>
             </div>
           </div>
 
           {/* Parámetro 7: Requerimientos Operativos Anuales - INDEPENDIENTE */}
-          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+          <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl p-3.5 space-y-2 flex flex-col justify-between hover:border-slate-300 transition-all shadow-2xs">
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300 flex items-center gap-1.5" title="Requerimientos operativos anuales para Eficiencia de Procesos (30 h/m c/u)">
-                  <FileText className="w-3.5 h-3.5 text-violet-400" />
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5" title="Requerimientos operativos anuales para Eficiencia de Procesos (30 h/m c/u)">
+                  <FileText className="w-3.5 h-3.5 text-violet-600" />
                   Requerimientos:
                 </span>
-                <span className="font-mono font-black text-violet-300 text-sm">
+                <span className="font-mono font-black text-violet-600 text-sm">
                   {anualRequerimientos} / año
                 </span>
               </div>
-              <div className="text-[11px] text-slate-400 flex items-center justify-between">
+              <div className="text-[11px] text-slate-500 flex items-center justify-between">
                 <span>Total {horizonYears} {horizonYears === 1 ? 'año' : 'años'}:</span>
-                <strong className="text-violet-200 font-mono font-bold">
+                <strong className="text-violet-700 font-mono font-bold">
                   {anualRequerimientos * horizonYears} reqs ({formatThousands(anualRequerimientos * horizonYears * 30)} h/m)
                 </strong>
               </div>
@@ -1533,7 +1532,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                 <button
                   type="button"
                   onClick={() => setAnualRequerimientos((prev) => Math.max(0, prev - 1))}
-                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs transition-colors cursor-pointer shrink-0"
+                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 transition-colors cursor-pointer shrink-0"
                   title="Disminuir 1 requerimiento/año"
                 >
                   <Minus className="w-3 h-3" />
@@ -1545,40 +1544,40 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                   step={1}
                   value={anualRequerimientos}
                   onChange={(e) => setAnualRequerimientos(Number(e.target.value))}
-                  className="w-full accent-violet-500 cursor-pointer"
+                  className="w-full accent-violet-600 cursor-pointer"
                 />
                 <button
                   type="button"
                   onClick={() => setAnualRequerimientos((prev) => Math.min(50, prev + 1))}
-                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs transition-colors cursor-pointer shrink-0"
+                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 transition-colors cursor-pointer shrink-0"
                   title="Aumentar 1 requerimiento/año"
                 >
                   <Plus className="w-3 h-3" />
                 </button>
               </div>
-              <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+              <div className="flex justify-between text-[10px] text-slate-500 font-mono">
                 <span>0 req</span>
-                <span className="text-violet-300 font-bold">10/año (Base)</span>
+                <span className="text-violet-700 font-bold">10/año (Base)</span>
                 <span>40 req</span>
               </div>
             </div>
           </div>
 
           {/* Parámetro 8: Mantenimientos Operativos Anuales - INDEPENDIENTE */}
-          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 space-y-2 flex flex-col justify-between">
+          <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl p-3.5 space-y-2 flex flex-col justify-between hover:border-slate-300 transition-all shadow-2xs">
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300 flex items-center gap-1.5" title="Mantenimientos preventivos y correctivos anuales para Eficiencia de Procesos (16 h/m c/u)">
-                  <Wrench className="w-3.5 h-3.5 text-amber-400" />
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5" title="Mantenimientos preventivos y correctivos anuales para Eficiencia de Procesos (16 h/m c/u)">
+                  <Wrench className="w-3.5 h-3.5 text-amber-600" />
                   Mantenimientos:
                 </span>
-                <span className="font-mono font-black text-amber-300 text-sm">
+                <span className="font-mono font-black text-amber-600 text-sm">
                   {anualMantenimientos} / año
                 </span>
               </div>
-              <div className="text-[11px] text-slate-400 flex items-center justify-between">
+              <div className="text-[11px] text-slate-500 flex items-center justify-between">
                 <span>Total {horizonYears} {horizonYears === 1 ? 'año' : 'años'}:</span>
-                <strong className="text-amber-200 font-mono font-bold">
+                <strong className="text-amber-700 font-mono font-bold">
                   {anualMantenimientos * horizonYears} mants ({formatThousands(anualMantenimientos * horizonYears * 16)} h/m)
                 </strong>
               </div>
@@ -1589,7 +1588,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                 <button
                   type="button"
                   onClick={() => setAnualMantenimientos((prev) => Math.max(0, prev - 1))}
-                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs transition-colors cursor-pointer shrink-0"
+                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 transition-colors cursor-pointer shrink-0"
                   title="Disminuir 1 mantenimiento/año"
                 >
                   <Minus className="w-3 h-3" />
@@ -1606,15 +1605,15 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                 <button
                   type="button"
                   onClick={() => setAnualMantenimientos((prev) => Math.min(100, prev + 1))}
-                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs transition-colors cursor-pointer shrink-0"
+                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 transition-colors cursor-pointer shrink-0"
                   title="Aumentar 1 mantenimiento/año"
                 >
                   <Plus className="w-3 h-3" />
                 </button>
               </div>
-              <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+              <div className="flex justify-between text-[10px] text-slate-500 font-mono">
                 <span>0 mant</span>
-                <span className="text-amber-300 font-bold">25/año (Base)</span>
+                <span className="text-amber-700 font-bold">25/año (Base)</span>
                 <span>60 mant</span>
               </div>
             </div>
@@ -1624,11 +1623,11 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
         {/* Botones de gestión rápida de vacantes */}
         <div className="relative z-10 mt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
-            <span className="text-slate-400">Equipo configurado:</span>
-            <span className="font-bold text-white bg-slate-800 px-2.5 py-1 rounded-md border border-slate-700">
+            <span className="text-slate-500">Equipo configurado:</span>
+            <span className="font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
               {teamMembers.length} Colaboradores
             </span>
-            <span className="text-slate-400 text-[11px]">
+            <span className="text-slate-500 text-[11px]">
               (3 Jefes, 3 Becarios, 9 Especialistas
               {teamMembers.length > 15 ? ` + ${teamMembers.length - 15} vacantes agregadas` : ''})
             </span>
@@ -1638,7 +1637,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
             <button
               type="button"
               onClick={handleAddSpecialistVacancy}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 transition-colors cursor-pointer shadow-2xs"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>+ Vacante Especialista</span>
@@ -1646,7 +1645,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
             <button
               type="button"
               onClick={handleAddBecarioVacancy}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-300 transition-colors cursor-pointer shadow-2xs"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>+ Vacante Becario</span>

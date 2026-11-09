@@ -101,7 +101,33 @@ export default function App() {
     }
   });
 
-  const [activeSheet, setActiveSheet] = useState<'hoja1' | 'hoja2' | 'hoja3'>('hoja1');
+  const [activeSheet, setActiveSheet] = useState<'hoja1' | 'hoja2' | 'hoja3'>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab === 'hoja1') return 'hoja1';
+      if (tab === 'hoja2') return 'hoja2';
+      if (tab === 'hoja3') return 'hoja3';
+      const hash = window.location.hash.toLowerCase();
+      if (hash.includes('hoja1')) return 'hoja1';
+      if (hash.includes('hoja2')) return 'hoja2';
+      if (hash.includes('hoja3')) return 'hoja3';
+    } catch {
+      // ignore
+    }
+    return 'hoja3';
+  });
+
+  const handleNavigateSheet = (sheet: 'hoja1' | 'hoja2' | 'hoja3') => {
+    setActiveSheet(sheet);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', sheet);
+      window.history.replaceState({}, '', url.toString());
+    } catch {
+      // ignore
+    }
+  };
   const [selectedSubdireccion, setSelectedSubdireccion] = useState<string>('ALL');
   const [selectedGerencia, setSelectedGerencia] = useState<string>('ALL');
   const [showWelcomeSyncModal, setShowWelcomeSyncModal] = useState<boolean>(false);
@@ -293,6 +319,7 @@ export default function App() {
               console.warn('Error saving to storage', e);
             }
             setHasAuthenticatedDrive(true);
+            handleNavigateSheet('hoja3');
             setSyncStatus({
               type: 'success',
               text: `¡Sincronización exitosa! Se cargaron ${imported.length} actividades en ${result.sheetNames.length} gerencias.`,
@@ -417,7 +444,7 @@ export default function App() {
         <nav className="hidden md:flex items-center gap-2 text-xs font-medium">
           <button
             type="button"
-            onClick={() => setActiveSheet('hoja1')}
+            onClick={() => handleNavigateSheet('hoja1')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors font-semibold cursor-pointer ${
               activeSheet === 'hoja1'
                 ? 'bg-blue-600 text-white shadow-xs'
@@ -429,7 +456,7 @@ export default function App() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveSheet('hoja2')}
+            onClick={() => handleNavigateSheet('hoja2')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors font-semibold cursor-pointer ${
               activeSheet === 'hoja2'
                 ? 'bg-blue-600 text-white shadow-xs'
@@ -441,7 +468,7 @@ export default function App() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveSheet('hoja3')}
+            onClick={() => handleNavigateSheet('hoja3')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors font-semibold cursor-pointer ${
               activeSheet === 'hoja3'
                 ? 'bg-blue-600 text-white shadow-xs'
@@ -529,7 +556,7 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200">
             <button
               type="button"
-              onClick={() => setActiveSheet('hoja1')}
+              onClick={() => handleNavigateSheet('hoja1')}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
                 activeSheet === 'hoja1'
                   ? 'bg-blue-600 text-white shadow-xs'
@@ -542,7 +569,7 @@ export default function App() {
 
             <button
               type="button"
-              onClick={() => setActiveSheet('hoja2')}
+              onClick={() => handleNavigateSheet('hoja2')}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
                 activeSheet === 'hoja2'
                   ? 'bg-blue-600 text-white shadow-xs'
@@ -555,7 +582,7 @@ export default function App() {
 
             <button
               type="button"
-              onClick={() => setActiveSheet('hoja3')}
+              onClick={() => handleNavigateSheet('hoja3')}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
                 activeSheet === 'hoja3'
                   ? 'bg-blue-600 text-white shadow-xs'
