@@ -173,7 +173,7 @@ export async function exportWorkPlanSimulationXlsx(
     sheetSummary.getCell(`D${rowNum}`).value = c.totalCapacity;
     sheetSummary.getCell(`D${rowNum}`).alignment = { horizontal: 'center' };
 
-    sheetSummary.getCell(`E${rowNum}`).value = c.assignedCount;
+    sheetSummary.getCell(`E${rowNum}`).value = Number(c.assignedCount.toFixed(1));
     sheetSummary.getCell(`E${rowNum}`).font = { bold: true };
     sheetSummary.getCell(`E${rowNum}`).alignment = { horizontal: 'center' };
 
@@ -264,7 +264,7 @@ export async function exportWorkPlanSimulationXlsx(
     sheetActivities.getCell(`B${rowNum}`).value = act.prioridad;
     sheetActivities.getCell(`B${rowNum}`).alignment = { horizontal: 'center' };
 
-    const calYear = 2026 + act.assignedYear; // Year 1 -> 2027, Year 2 -> 2028, etc.
+    const calYear = act.tipo === 'REQUERIMIENTO' || act.tipo === 'MANTENIMIENTO' ? 'Anual' : (2026 + act.assignedYear);
     sheetActivities.getCell(`C${rowNum}`).value = calYear;
     sheetActivities.getCell(`C${rowNum}`).alignment = { horizontal: 'center' };
     sheetActivities.getCell(`C${rowNum}`).font = { bold: true };

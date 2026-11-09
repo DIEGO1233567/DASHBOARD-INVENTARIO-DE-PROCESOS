@@ -67,6 +67,12 @@ export function toCalendarYearLabel(assignedYearNum: number): string {
   return `${toCalendarYear(assignedYearNum)}`;
 }
 
+export function formatActivityCount(val: number): string {
+  if (val == null || isNaN(val)) return '0';
+  if (Number.isInteger(val)) return val.toString();
+  return Number(val.toFixed(1)).toString();
+}
+
 interface WorkPlanSimulationSheetProps {
   records: ProcessRecord[];
   allGerencias: string[];
@@ -380,66 +386,11 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
     };
   }, [hoja2StatusAnalysis, totalHoja2Activities, pctNoAutoThreshold, includeNoAutoActivities, allGerencias]);
 
-  // Actividades operativas fijas (Requerimientos y Mantenimientos proyectados para el horizonte)
+  // Métricas de Requerimientos y Mantenimientos proyectados para el horizonte
   const operationalActivities = useMemo(() => {
     const totalReqs = anualRequerimientos * horizonYears;
     const totalMants = anualMantenimientos * horizonYears;
-
-    const reqs: Array<{
-      id: string;
-      actividadProceso: string;
-      gerencia: string;
-      tipo: 'REQUERIMIENTO';
-      tipoLabel: string;
-      horasManualesMensuales: number;
-      horasTotalesMensuales: number;
-      isNomina: boolean;
-      assignedYear: number;
-    }> = [];
-
-    for (let i = 1; i <= totalReqs; i++) {
-      const year = Math.min(horizonYears, Math.floor((i - 1) / Math.max(1, anualRequerimientos)) + 1);
-      reqs.push({
-        id: `OP-REQ-${i}`,
-        actividadProceso: `Atención a Requerimiento Funcional Operativo #${i} (Eficiencia)`,
-        gerencia: 'Eficiencia de Procesos',
-        tipo: 'REQUERIMIENTO',
-        tipoLabel: 'Requerimiento Operativo Anual',
-        horasManualesMensuales: 30, // Estimación estándar de horas
-        horasTotalesMensuales: 30,
-        isNomina: false,
-        assignedYear: year,
-      });
-    }
-
-    const mants: Array<{
-      id: string;
-      actividadProceso: string;
-      gerencia: string;
-      tipo: 'MANTENIMIENTO';
-      tipoLabel: string;
-      horasManualesMensuales: number;
-      horasTotalesMensuales: number;
-      isNomina: boolean;
-      assignedYear: number;
-    }> = [];
-
-    for (let i = 1; i <= totalMants; i++) {
-      const year = Math.min(horizonYears, Math.floor((i - 1) / Math.max(1, anualMantenimientos)) + 1);
-      mants.push({
-        id: `OP-MANT-${i}`,
-        actividadProceso: `Mantenimiento Preventivo y Correctivo de Solución #${i} (Eficiencia)`,
-        gerencia: 'Eficiencia de Procesos',
-        tipo: 'MANTENIMIENTO',
-        tipoLabel: 'Mantenimiento Preventivo / Correctivo',
-        horasManualesMensuales: 16, // Estimación estándar de horas
-        horasTotalesMensuales: 16,
-        isNomina: false,
-        assignedYear: year,
-      });
-    }
-
-    return { reqs, mants, totalOpsCount: totalReqs + totalMants };
+    return { totalReqs, totalMants, totalOpsCount: totalReqs + totalMants };
   }, [anualRequerimientos, anualMantenimientos, horizonYears]);
 
   // --------------------------------------------------------------------------
@@ -473,6 +424,12 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
     });
 
     const collabMap = new Map<string, PlanCollaborator>(collabs.map((c) => [c.id, c]));
+
+    // Recursos con capacidad activa (> 0)
+    const activeCollabs = collabs.filter((c) => c.monthlyCapacity > 0);
+    const totalRecursosActivos = activeCollabs.length;
+    const reqSharePerYear = totalRecursosActivos > 0 ? anualRequerimientos / totalRecursosActivos : 0;
+    const mantSharePerYear = totalRecursosActivos > 0 ? anualMantenimientos / totalRecursosActivos : 0;
 
     // Identificar a Daniel García Velázquez (ÚNICO autorizado para Nómina)
     const danielCollab = collabs.find((c) => c.isNominaExclusive) || collabs[0];
@@ -693,35 +650,66 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
       });
     }
 
-    // 3. Agregar Requerimientos y Mantenimientos
-    for (const req of operationalActivities.reqs) {
-      unifiedActivities.push({
-        ...req,
-        prioridad: currentPriority++,
-        levelingTier: 'OPERATIVO',
-      });
+    // Asignación automática inicial
+    const assignmentsMap = new Map<string, string>(); // actId -> collabId
+
+    // 3. Agregar Requerimientos y Mantenimientos: repartidos a cada recurso con capacidad activa
+    // Cada recurso activo tiene una fila de Requerimiento y una fila de Mantenimiento con horas [Por definir]
+    if (anualRequerimientos > 0 && totalRecursosActivos > 0) {
+      for (const c of activeCollabs) {
+        const reqId = `OP-REQ-${c.id}`;
+        unifiedActivities.push({
+          id: reqId,
+          actividadProceso: `Atención a Requerimientos Operativos (${reqSharePerYear.toFixed(1)} req/año · Por definir)`,
+          gerencia: 'Eficiencia de Procesos',
+          tipo: 'REQUERIMIENTO',
+          tipoLabel: 'Requerimiento Operativo (Por definir)',
+          horasManualesMensuales: 0,
+          horasTotalesMensuales: 0,
+          isNomina: false,
+          assignedYear: 1,
+          prioridad: currentPriority++,
+          isPendingDefinition: true,
+          levelingTier: 'OPERATIVO',
+        });
+        assignmentsMap.set(reqId, c.id);
+      }
     }
-    for (const mant of operationalActivities.mants) {
-      unifiedActivities.push({
-        ...mant,
-        prioridad: currentPriority++,
-        levelingTier: 'OPERATIVO',
-      });
+
+    if (anualMantenimientos > 0 && totalRecursosActivos > 0) {
+      for (const c of activeCollabs) {
+        const mantId = `OP-MANT-${c.id}`;
+        unifiedActivities.push({
+          id: mantId,
+          actividadProceso: `Mantenimiento Preventivo y Correctivo (${mantSharePerYear.toFixed(1)} mant/año · Por definir)`,
+          gerencia: 'Eficiencia de Procesos',
+          tipo: 'MANTENIMIENTO',
+          tipoLabel: 'Mantenimiento Preventivo / Correctivo (Por definir)',
+          horasManualesMensuales: 0,
+          horasTotalesMensuales: 0,
+          isNomina: false,
+          assignedYear: 1,
+          prioridad: currentPriority++,
+          isPendingDefinition: true,
+          levelingTier: 'OPERATIVO',
+        });
+        assignmentsMap.set(mantId, c.id);
+      }
     }
 
     // FASE 1: Separar actividades de Nómina (REGLA CRÍTICA: SOLO DANIEL GARCÍA VELÁZQUEZ)
     const nominaActivities = unifiedActivities.filter((a) => a.isNomina);
-    const nonNominaActivities = unifiedActivities.filter((a) => !a.isNomina);
-
-    // Asignación automática inicial
-    const assignmentsMap = new Map<string, string>(); // actId -> collabId
+    // Filtrar actividades de proceso de otras gerencias (excluyendo Nómina y las operativas que ya están asignadas por recurso)
+    const processNonNominaActivities = unifiedActivities.filter(
+      (a) => !a.isNomina && a.tipo !== 'REQUERIMIENTO' && a.tipo !== 'MANTENIMIENTO'
+    );
 
     // Asignar todas las de Nómina a Daniel
     for (const act of nominaActivities) {
       assignmentsMap.set(act.id, danielCollab.id);
     }
 
-    // FASE 2: Distribuir actividades no-nómina asegurando que CADA COLABORADOR TENGA ACTIVIDADES DE TODAS LAS GERENCIAS
+    // FASE 2: Distribuir actividades no-nómina de procesos asegurando que CADA COLABORADOR TENGA ACTIVIDADES DE TODAS LAS GERENCIAS
     const nonNominaCollabs = collabs.filter((c) => !c.isNominaExclusive);
 
     // Matriz de seguimiento: collabId -> (gerenciaName -> count)
@@ -730,8 +718,8 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
       collabGerenciaCounts.set(c.id, new Map<string, number>());
     }
 
-    // Iterar cada actividad no-nómina en el orden unificado
-    for (const act of nonNominaActivities) {
+    // Iterar cada actividad no-nómina de procesos en el orden unificado
+    for (const act of processNonNominaActivities) {
       // 1. Candidatos con capacidad disponible
       let availableCollabs = nonNominaCollabs.filter((c) => {
         const currentCount = Array.from(assignmentsMap.values()).filter((id) => id === c.id).length;
@@ -844,13 +832,20 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
     for (const act of finalActivities) {
       const c = collabMap.get(act.colaboradorAsignadoId);
       if (c) {
-        c.assignedCount += 1;
+        if (act.tipo === 'REQUERIMIENTO') {
+          c.assignedCount += reqSharePerYear;
+        } else if (act.tipo === 'MANTENIMIENTO') {
+          c.assignedCount += mantSharePerYear;
+        } else {
+          c.assignedCount += 1;
+        }
         c.assignedHours += act.horasManualesMensuales;
         gerenciasByCollab.get(c.id)?.add(act.gerencia);
       }
     }
 
     for (const c of collabs) {
+      c.assignedCount = Number(c.assignedCount.toFixed(1));
       c.gerenciasCovered = Array.from(gerenciasByCollab.get(c.id) || []);
     }
 
@@ -1073,7 +1068,11 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
 
     // Filtro Excel: Año Calendario (2027, 2028, etc.)
     if (filterYears.length > 0) {
-      list = list.filter((act) => filterYears.includes(toCalendarYear(act.assignedYear)));
+      list = list.filter((act) => 
+        filterYears.includes(toCalendarYear(act.assignedYear)) ||
+        act.tipo === 'REQUERIMIENTO' ||
+        act.tipo === 'MANTENIMIENTO'
+      );
     }
 
     // Filtro Excel: Gerencia
@@ -1449,7 +1448,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               <div className="space-y-1">
                 <input
                   type="range"
-                  min={5}
+                  min={0}
                   max={40}
                   step={1}
                   value={pctNoAutoThreshold}
@@ -1457,7 +1456,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                   className="w-full accent-amber-500 cursor-pointer"
                 />
                 <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-                  <span>5%</span>
+                  <span>0%</span>
                   <span className="text-amber-700 font-bold">
                     20% ({Math.round(totalHoja2Activities * 0.20)} act)
                   </span>
@@ -1511,7 +1510,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
           <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl p-3.5 space-y-2 flex flex-col justify-between hover:border-slate-300 transition-all shadow-2xs">
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-700 flex items-center gap-1.5" title="Requerimientos operativos anuales para Eficiencia de Procesos (30 h/m c/u)">
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5" title="Requerimientos operativos anuales para Eficiencia de Procesos (Horas por definir)">
                   <FileText className="w-3.5 h-3.5 text-violet-600" />
                   Requerimientos:
                 </span>
@@ -1522,7 +1521,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               <div className="text-[11px] text-slate-500 flex items-center justify-between">
                 <span>Total {horizonYears} {horizonYears === 1 ? 'año' : 'años'}:</span>
                 <strong className="text-violet-700 font-mono font-bold">
-                  {anualRequerimientos * horizonYears} reqs ({formatThousands(anualRequerimientos * horizonYears * 30)} h/m)
+                  {anualRequerimientos * horizonYears} reqs [Por Definir]
                 </strong>
               </div>
             </div>
@@ -1567,7 +1566,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
           <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl p-3.5 space-y-2 flex flex-col justify-between hover:border-slate-300 transition-all shadow-2xs">
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-700 flex items-center gap-1.5" title="Mantenimientos preventivos y correctivos anuales para Eficiencia de Procesos (16 h/m c/u)">
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5" title="Mantenimientos preventivos y correctivos anuales para Eficiencia de Procesos (Horas por definir)">
                   <Wrench className="w-3.5 h-3.5 text-amber-600" />
                   Mantenimientos:
                 </span>
@@ -1578,7 +1577,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               <div className="text-[11px] text-slate-500 flex items-center justify-between">
                 <span>Total {horizonYears} {horizonYears === 1 ? 'año' : 'años'}:</span>
                 <strong className="text-amber-700 font-mono font-bold">
-                  {anualMantenimientos * horizonYears} mants ({formatThousands(anualMantenimientos * horizonYears * 16)} h/m)
+                  {anualMantenimientos * horizonYears} mants [Por Definir]
                 </strong>
               </div>
             </div>
@@ -1772,7 +1771,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               • No Dig No Auto: <strong className="text-slate-800">{candidateActivities.noDigNoAutoSelected.length}</strong> ({includeNoAutoActivities ? `${pctNoAutoThreshold}% s/total Hoja 2 (${totalHoja2Activities} act)` : 'Desactivadas 0'})
             </div>
             <div>
-              • Reqs & Mants: <strong className="text-slate-800">{operationalActivities.totalOpsCount}</strong> ({operationalActivities.reqs.length} reqs / {operationalActivities.mants.length} mants en {horizonYears} {horizonYears === 1 ? 'año' : 'años'})
+              • Reqs & Mants: <strong className="text-slate-800">{operationalActivities.totalOpsCount}</strong> ({operationalActivities.totalReqs} reqs / {operationalActivities.totalMants} mants en {horizonYears} {horizonYears === 1 ? 'año' : 'años'} · Por definir)
             </div>
           </div>
         </div>
@@ -2295,7 +2294,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                                 <span>{collab.monthlyCapacity} act/mes nominal</span>
                                 <span className="text-slate-300">·</span>
                                 <span className="text-blue-600 font-semibold hover:underline">
-                                  {isExpanded ? 'Ocultar actividades' : `Ver ${collab.assignedCount} actividades`}
+                                  {isExpanded ? 'Ocultar actividades' : `Ver ${formatActivityCount(collab.assignedCount)} actividades`}
                                 </span>
                               </div>
                             </div>
@@ -2322,7 +2321,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
 
                         <td className="py-3 px-3 text-center">
                           <span className="font-mono font-black text-slate-900 text-sm bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 inline-flex items-center gap-1">
-                            <span>{collab.assignedCount}</span>
+                            <span>{formatActivityCount(collab.assignedCount)}</span>
                           </span>
                         </td>
 
@@ -2495,7 +2494,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                                           </td>
                                           <td className="py-2 px-3 text-center">
                                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-900 border border-blue-200 font-mono">
-                                              {toCalendarYear(act.assignedYear)}
+                                              {act.tipo === 'REQUERIMIENTO' || act.tipo === 'MANTENIMIENTO' ? 'Anual' : toCalendarYear(act.assignedYear)}
                                             </span>
                                           </td>
                                           <td className="py-2 px-3">
@@ -2581,7 +2580,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                                               >
                                                 {collaboratorsSummary.map((c) => (
                                                   <option key={c.id} value={c.id}>
-                                                    {c.name} ({c.role}) · {c.assignedCount}/{c.totalCapacity}
+                                                    {c.name} ({c.role}) · {formatActivityCount(c.assignedCount)}/{c.totalCapacity}
                                                   </option>
                                                 ))}
                                               </select>
@@ -3224,7 +3223,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                                     <span className="text-[10px] text-slate-400 shrink-0 font-normal">({c.role})</span>
                                   </div>
                                   <span className="text-[10px] text-slate-500 font-mono font-bold shrink-0">
-                                    {c.assignedCount} act
+                                    {formatActivityCount(c.assignedCount)} act
                                   </span>
                                 </label>
                               );
@@ -3275,7 +3274,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
 
                       <td className="py-2.5 px-3 text-center">
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-900 font-mono border border-blue-200">
-                          {toCalendarYear(act.assignedYear)}
+                          {act.tipo === 'REQUERIMIENTO' || act.tipo === 'MANTENIMIENTO' ? 'Anual' : toCalendarYear(act.assignedYear)}
                         </span>
                       </td>
 
@@ -3371,7 +3370,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                           >
                             {collaboratorsSummary.map((c) => (
                               <option key={c.id} value={c.id}>
-                                {c.name} ({c.role}) · {c.assignedCount}/{c.totalCapacity}
+                                {c.name} ({c.role}) · {formatActivityCount(c.assignedCount)}/{c.totalCapacity}
                               </option>
                             ))}
                           </select>
