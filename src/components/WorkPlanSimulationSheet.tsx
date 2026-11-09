@@ -445,29 +445,54 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
     //    se atienden en la fase de consolidación.
     // --------------------------------------------------------------------------
 
-    // Mapa de estadísticas de cada gerencia tomadas de la Hoja 1
+    // Mapa de horas No Digitalizadas Sí Automatizables por gerencia
+    const noDigSiHoursMap = new Map<string, number>();
+    for (const act of candidateActivities.noDigSiAuto) {
+      const gKey = act.gerencia.trim().toLowerCase();
+      noDigSiHoursMap.set(gKey, (noDigSiHoursMap.get(gKey) || 0) + act.horasManuales);
+    }
+
+    // Mapa de estadísticas de cada gerencia tomadas de la Hoja 1 y del inventario:
+    // - REGLA 1 (Meta 80% Nivelación): Base 100% de automatización = horasAutomatizadas + horasNoDigitalizadasSiAutomatizables
+    // - REGLA 2 (Porcentaje Proyectado Global): Base 100% = suma total de las horas de actividades de la gerencia (horasTotales)
     const gerenciaStatsMap = new Map<string, {
       gerencia: string;
-      initialPct: number;
       totalHours: number;
       autoHours: number;
+      noDigSiAutoHours: number;
+      horasAutomatizables100: number;
+      initialAvancePct: number;
+      initialGlobalPct: number;
       simAutoHours: number;
     }>();
 
     for (const s of gerenciaSummaries) {
       const gNorm = s.gerencia.trim();
+      const gKey = gNorm.toLowerCase();
+      const noDigSiHours = noDigSiHoursMap.get(gKey) ?? Math.min(s.horasManuales, Math.max(0, s.horasPotencialAutomatizable || 0));
+      const horasAutomatizables100 = s.horasAutomatizadas + noDigSiHours;
+      const initialAvancePct = horasAutomatizables100 > 0
+        ? Number(((s.horasAutomatizadas / horasAutomatizables100) * 100).toFixed(1))
+        : 100;
+      const initialGlobalPct = s.horasTotales > 0
+        ? Number(((s.horasAutomatizadas / s.horasTotales) * 100).toFixed(1))
+        : 0;
+
       gerenciaStatsMap.set(gNorm, {
         gerencia: gNorm,
-        initialPct: s.pctAutomatizado,
         totalHours: s.horasTotales,
         autoHours: s.horasAutomatizadas,
+        noDigSiAutoHours: noDigSiHours,
+        horasAutomatizables100: horasAutomatizables100 > 0 ? horasAutomatizables100 : (s.horasTotales || 1),
+        initialAvancePct,
+        initialGlobalPct,
         simAutoHours: s.horasAutomatizadas,
       });
     }
 
-    const getGerenciaInitialPct = (gName: string) => {
+    const getGerenciaInitialAvancePct = (gName: string) => {
       const stat = gerenciaStatsMap.get(gName.trim());
-      return stat ? stat.initialPct : 50;
+      return stat ? stat.initialAvancePct : 50;
     };
 
     // Agrupar No Digitalizadas Sí Automatizables por Gerencia
@@ -484,17 +509,20 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
       acts.sort((a, b) => b.horasManuales - a.horasManuales || b.horasTotales - a.horasTotales);
     }
 
-    // Gerencias presentes en las actividades, ordenadas por menor automatización inicial (prioridad a las más rezagadas)
+    // Gerencias presentes en las actividades, ordenadas por menor avance inicial en lo automatizable
+    // (prioridad a las gerencias con menor % de avance sobre horas automatizadas + no dig sí auto)
     const sortedGerenciaNames = Array.from(siAutoByGerencia.keys()).sort((a, b) => {
-      return getGerenciaInitialPct(a) - getGerenciaInitialPct(b);
+      return getGerenciaInitialAvancePct(a) - getGerenciaInitialAvancePct(b);
     });
 
     // Clasificar las actividades de cada gerencia identificando cuáles pertenecen al Tier 1 (Nivelación < 80%)
-    // y cuáles al Tier 2 (Consolidación >= 80%).
+    // y cuáles al Tier 2 (Consolidación >= 80%), considerando como 100% las horas automatizables.
     type ClassifiedItem = {
       act: (typeof candidateActivities.noDigSiAuto)[0];
       gerenciaInitialPct: number;
+      gerenciaInitialGlobalPct: number;
       gerenciaSimPct: number;
+      gerenciaSimGlobalPct: number;
       levelingTier: 'NIVELACION_SUB_80' | 'CONSOLIDACION_SUPER_80';
     };
 
@@ -504,24 +532,35 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
       const acts = siAutoByGerencia.get(gName) || [];
       const gStat = gerenciaStatsMap.get(gName) || {
         gerencia: gName,
-        initialPct: 50,
         totalHours: acts.reduce((acc, a) => acc + a.horasTotales, 0) || 100,
         autoHours: 0,
+        noDigSiAutoHours: acts.reduce((acc, a) => acc + a.horasManuales, 0) || 100,
+        horasAutomatizables100: acts.reduce((acc, a) => acc + a.horasManuales, 0) || 100,
+        initialAvancePct: 0,
+        initialGlobalPct: 0,
         simAutoHours: 0,
       };
 
       const classifiedList: ClassifiedItem[] = [];
 
       for (const act of acts) {
-        const currentSimPct = gStat.totalHours > 0
-          ? (gStat.simAutoHours / gStat.totalHours) * 100
+        // Avance sobre el 100% automatizable (Horas auto + No dig sí auto)
+        const currentSimAvancePct = gStat.horasAutomatizables100 > 0
+          ? (gStat.simAutoHours / gStat.horasAutomatizables100) * 100
           : 100;
 
-        const isSub80 = currentSimPct < levelingTargetPct;
+        // Porcentaje proyectado global sobre la suma total de horas de actividades de la gerencia
+        const currentSimGlobalPct = gStat.totalHours > 0
+          ? (gStat.simAutoHours / gStat.totalHours) * 100
+          : 0;
+
+        const isSub80 = currentSimAvancePct < levelingTargetPct;
         classifiedList.push({
           act,
-          gerenciaInitialPct: gStat.initialPct,
-          gerenciaSimPct: currentSimPct,
+          gerenciaInitialPct: gStat.initialAvancePct,
+          gerenciaInitialGlobalPct: gStat.initialGlobalPct,
+          gerenciaSimPct: Number(currentSimAvancePct.toFixed(1)),
+          gerenciaSimGlobalPct: Number(currentSimGlobalPct.toFixed(1)),
           levelingTier: isSub80 ? 'NIVELACION_SUB_80' : 'CONSOLIDACION_SUPER_80',
         });
         gStat.simAutoHours += act.horasManuales;
@@ -573,7 +612,9 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
       prioridad: number;
       isPendingDefinition?: boolean;
       gerenciaInitialPct?: number;
+      gerenciaInitialGlobalPct?: number;
       gerenciaSimPct?: number;
+      gerenciaSimGlobalPct?: number;
       levelingTier?: string;
     }> = [];
 
@@ -597,7 +638,9 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
         assignedYear: 1, // Se calculará con base en el cronograma
         prioridad: currentPriority++,
         gerenciaInitialPct: item.gerenciaInitialPct,
+        gerenciaInitialGlobalPct: item.gerenciaInitialGlobalPct,
         gerenciaSimPct: item.gerenciaSimPct,
+        gerenciaSimGlobalPct: item.gerenciaSimGlobalPct,
         levelingTier: item.levelingTier,
       });
     }
@@ -645,7 +688,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
         assignedYear: 2,
         prioridad: currentPriority++,
         isPendingDefinition: true,
-        gerenciaInitialPct: getGerenciaInitialPct(item.gerencia),
+        gerenciaInitialPct: getGerenciaInitialAvancePct(item.gerencia),
         levelingTier: 'EVALUACION_NO_AUTO',
       });
     }
@@ -818,7 +861,9 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
         isNomina: act.isNomina,
         isPendingDefinition: act.isPendingDefinition || act.tipo === 'NO_DIG_NO_AUTO',
         gerenciaInitialPct: act.gerenciaInitialPct,
+        gerenciaInitialGlobalPct: act.gerenciaInitialGlobalPct,
         gerenciaSimPct: act.gerenciaSimPct,
+        gerenciaSimGlobalPct: act.gerenciaSimGlobalPct,
         levelingTier: act.levelingTier,
       };
     });
@@ -907,15 +952,52 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
       planActsByGerencia.get(act.gerencia)!.push(act);
     }
 
+    // Mapa de horas No Digitalizadas Sí Automatizables por gerencia
+    const noDigSiHoursMap = new Map<string, number>();
+    for (const act of candidateActivities.noDigSiAuto) {
+      const gKey = act.gerencia.trim().toLowerCase();
+      noDigSiHoursMap.set(gKey, (noDigSiHoursMap.get(gKey) || 0) + act.horasManuales);
+    }
+
     return gerenciaSummaries.map((summary) => {
+      const gKey = summary.gerencia.trim().toLowerCase();
       const acts = planActsByGerencia.get(summary.gerencia) || [];
       const totalPlanActs = acts.length;
       const hoursFromPlan = acts.reduce((acc, a) => acc + (a.horasManualesMensuales || 0), 0);
       const projectedAutoHours = summary.horasAutomatizadas + hoursFromPlan;
-      const projectedPct = summary.horasTotales > 0
-        ? Math.min(100, Number(((projectedAutoHours / summary.horasTotales) * 100).toFixed(1)))
+
+      // --------------------------------------------------------------------------
+      // REGLA 1 (Usuario): Para calcular lo del 80% de avance de automatización,
+      // el 100% de automatización será la suma de:
+      // horas automatizadas + horas no digitalizadas sí automatizables
+      // --------------------------------------------------------------------------
+      const noDigSiHours = noDigSiHoursMap.get(gKey) ?? Math.min(summary.horasManuales, Math.max(0, summary.horasPotencialAutomatizable || 0));
+      const autoBase100 = summary.horasAutomatizadas + noDigSiHours;
+
+      const initialAvancePct = autoBase100 > 0
+        ? Number(((summary.horasAutomatizadas / autoBase100) * 100).toFixed(1))
+        : 100;
+
+      const projectedAvancePct = autoBase100 > 0
+        ? Math.min(100, Number(((projectedAutoHours / autoBase100) * 100).toFixed(1)))
+        : 100;
+
+      const deltaAvancePct = Number((projectedAvancePct - initialAvancePct).toFixed(1));
+
+      // --------------------------------------------------------------------------
+      // REGLA 2 (Usuario): Para el porcentaje proyectado,
+      // debe considerar el 100% como la suma total de las horas de actividades de la gerencia (horasTotales)
+      // --------------------------------------------------------------------------
+      const totalGerenciaHours = summary.horasTotales;
+      const initialGlobalPct = summary.pctAutomatizado; // (horasAutomatizadas / totalGerenciaHours) * 100
+      const projectedPct = totalGerenciaHours > 0
+        ? Math.min(100, Number(((projectedAutoHours / totalGerenciaHours) * 100).toFixed(1)))
         : summary.pctAutomatizado;
-      const deltaPct = Number((projectedPct - summary.pctAutomatizado).toFixed(1));
+      const deltaPct = Number((projectedPct - initialGlobalPct).toFixed(1));
+
+      // Meta de nivelación al 80%: evaluada respecto al avance sobre lo automatizable (Regla 1)
+      const meetsTarget = projectedAvancePct >= levelingTargetPct;
+      const initiallyBelowTarget = initialAvancePct < levelingTargetPct;
 
       const tier1Count = acts.filter((a) => a.levelingTier === 'NIVELACION_SUB_80').length;
       const tier2Count = acts.filter((a) => a.levelingTier === 'CONSOLIDACION_SUPER_80').length;
@@ -927,16 +1009,24 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
 
       return {
         gerencia: summary.gerencia,
-        initialPct: summary.pctAutomatizado,
-        initialAutoHours: summary.horasAutomatizadas,
-        initialManualHours: summary.horasManuales,
-        totalHours: summary.horasTotales,
-        planActsCount: totalPlanActs,
-        hoursFromPlan,
+        // Métricas para Meta 80% (Base = Horas Automatizadas + No Dig Sí Auto)
+        autoBase100: autoBase100 > 0 ? autoBase100 : totalGerenciaHours,
+        noDigSiHours,
+        initialAvancePct,
+        projectedAvancePct,
+        deltaAvancePct,
+        meetsTarget,
+        initiallyBelowTarget,
+        // Métricas Globales (Base = Total Horas Gerencia)
+        totalHours: totalGerenciaHours,
+        initialPct: initialGlobalPct,
         projectedPct,
         deltaPct,
-        meetsTarget: projectedPct >= levelingTargetPct,
-        initiallyBelowTarget: summary.pctAutomatizado < levelingTargetPct,
+        initialAutoHours: summary.horasAutomatizadas,
+        initialManualHours: summary.horasManuales,
+        projectedAutoHours,
+        planActsCount: totalPlanActs,
+        hoursFromPlan,
         tier1Count,
         tier2Count,
         noAutoCount,
@@ -944,8 +1034,8 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
         year2Count,
         year3Count,
       };
-    }).sort((a, b) => a.initialPct - b.initialPct);
-  }, [gerenciaSummaries, planActivities, levelingTargetPct]);
+    }).sort((a, b) => a.initialAvancePct - b.initialAvancePct);
+  }, [gerenciaSummaries, planActivities, levelingTargetPct, candidateActivities.noDigSiAuto]);
 
   // Función para reasignar una actividad
   const handleReassignActivity = useCallback((actId: string, newCollabId: string) => {
@@ -1877,9 +1967,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               </h3>
             </div>
             <p className="text-xs text-slate-600 max-w-4xl leading-relaxed">
-              Equilibrio operativo: Se atienden con máxima prioridad las gerencias con menor nivel inicial de automatización
-              (ordenadas de mayor a menor impacto de horas manuales) hasta que su porcentaje alcance el <strong className="text-slate-900 font-bold">{levelingTargetPct}%</strong>.
-              Una vez cubierta la meta, se incorporan las gerencias subsecuentes y la consolidación de actividades restantes.
+              Equilibrio operativo: Para calcular el avance de automatización hacia la meta del <strong className="text-slate-900 font-bold">{levelingTargetPct}%</strong>, el 100% de automatización se determina como la suma de las <strong className="text-slate-900 font-semibold">horas automatizadas + horas no digitalizadas sí automatizables</strong> (de acuerdo con la Hoja 1). Para el porcentaje proyectado global, el 100% corresponde a la <strong className="text-slate-900 font-semibold">suma total de horas de actividades de la gerencia</strong>.
             </p>
           </div>
 
@@ -1919,7 +2007,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               </span>
             </div>
             <div className="text-[10px] text-slate-500 mt-0.5">
-              Menor base: <strong className="text-slate-800">CXP (38.6%)</strong>
+              Menor base: <strong className="text-slate-800">CXP ({gerenciaLevelingProjections[0]?.initialAvancePct ?? 0}%)</strong>
             </div>
           </div>
 
@@ -1936,7 +2024,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               </span>
             </div>
             <div className="text-[10px] text-emerald-700 mt-0.5">
-              Alcanzan o superan el {levelingTargetPct}%
+              Alcanzan ≥ {levelingTargetPct}% de lo automatizable
             </div>
           </div>
 
@@ -1953,7 +2041,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               </span>
             </div>
             <div className="text-[10px] text-rose-700 mt-0.5">
-              Enfocadas en cerrar brechas operativas
+              Hasta el {levelingTargetPct}% de lo automatizable
             </div>
           </div>
 
@@ -1970,7 +2058,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
               </span>
             </div>
             <div className="text-[10px] text-indigo-700 mt-0.5">
-              Optimización post-nivelación
+              Consolidación sobre el {levelingTargetPct}%
             </div>
           </div>
         </div>
@@ -1980,8 +2068,8 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
           <div className="pt-2 border-t border-slate-100">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {gerenciaLevelingProjections.map((g, idx) => {
-                const isBaseOver80 = g.initialPct >= levelingTargetPct;
-                const isProjectedOver80 = g.projectedPct >= levelingTargetPct;
+                const isBaseOver80 = g.initialAvancePct >= levelingTargetPct;
+                const isProjectedOver80 = g.meetsTarget;
 
                 return (
                   <div
@@ -2007,57 +2095,68 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                         <div className="text-[11px] text-slate-500 font-mono">
                           Total horas gerencia: <strong>{formatThousands(g.totalHours)} h/m</strong>
                         </div>
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          100% Automatizable: <strong className="text-slate-800">{formatThousands(g.autoBase100)} h/m</strong> ({formatHours(g.initialAutoHours)} h auto + {formatHours(g.noDigSiHours)} h no dig sí auto)
+                        </div>
                       </div>
 
                       {/* Badge de estado frente a la meta */}
                       <div>
                         {isBaseOver80 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-800 border border-slate-300">
-                            ⭐ Base ≥ {levelingTargetPct}%
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-800 border border-slate-300" title={`Base inicial: ${g.initialAvancePct}% de su universo automatizable`}>
+                            ⭐ Base ≥ {levelingTargetPct}% ({g.initialAvancePct}%)
                           </span>
                         ) : isProjectedOver80 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
-                            ✅ Meta {levelingTargetPct}% (+{g.deltaPct}%)
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300" title={`Avance proyectado: ${g.projectedAvancePct}% sobre horas automatizables`}>
+                            ✅ Meta {levelingTargetPct}% (+{g.deltaAvancePct}%)
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                            🎯 Nivelando (+{g.deltaPct}%)
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300" title={`Avance proyectado: ${g.projectedAvancePct}% sobre horas automatizables`}>
+                            🎯 Nivelando ({g.projectedAvancePct}% de meta)
                           </span>
                         )}
                       </div>
                     </div>
 
-                    {/* Barra de progreso de automatización dual (Inicial + Plan) */}
+                    {/* Barra de progreso de avance hacia la meta del 80% de lo automatizable */}
                     <div className="mt-3 space-y-1.5">
                       <div className="flex items-center justify-between text-[11px] font-mono">
                         <span className="text-slate-600">
-                          Inicial: <strong className="text-slate-900">{g.initialPct}%</strong>
+                          Avance Auto Inicial: <strong className="text-slate-900">{g.initialAvancePct}%</strong>
                         </span>
                         <span className="font-bold text-slate-900">
-                          Proyectado: <strong className={isProjectedOver80 ? 'text-emerald-700 text-xs' : 'text-amber-800'}>{g.projectedPct}%</strong>
+                          Avance Proyectado: <strong className={isProjectedOver80 ? 'text-emerald-700 text-xs' : 'text-amber-800'}>{g.projectedAvancePct}%</strong>
                         </span>
                       </div>
 
                       {/* Track de progreso con marca visual en 80% */}
                       <div className="relative w-full h-3 bg-slate-200 rounded-full overflow-hidden flex">
-                        {/* Porcentaje inicial */}
+                        {/* Porcentaje inicial sobre base automatizable */}
                         <div
                           className="h-full bg-slate-600 transition-all duration-300"
-                          style={{ width: `${Math.min(100, g.initialPct)}%` }}
-                          title={`Inicial: ${g.initialPct}%`}
+                          style={{ width: `${Math.min(100, g.initialAvancePct)}%` }}
+                          title={`Inicial: ${g.initialAvancePct}% de lo automatizable`}
                         />
                         {/* Aporte del plan */}
                         <div
                           className="h-full bg-emerald-500 transition-all duration-300"
-                          style={{ width: `${Math.max(0, Math.min(100 - g.initialPct, g.deltaPct))}%` }}
-                          title={`Aporte del plan: +${g.deltaPct}%`}
+                          style={{ width: `${Math.max(0, Math.min(100 - g.initialAvancePct, g.deltaAvancePct))}%` }}
+                          title={`Aporte del plan: +${g.deltaAvancePct}%`}
                         />
                         {/* Línea de meta de 80% */}
                         <div
                           className="absolute top-0 bottom-0 w-0.5 bg-red-600 z-10"
                           style={{ left: `${levelingTargetPct}%` }}
-                          title={`Meta: ${levelingTargetPct}%`}
+                          title={`Meta: ${levelingTargetPct}% de lo automatizable`}
                         />
+                      </div>
+
+                      {/* Porcentaje Proyectado Global (respecto al 100% de horas totales de la gerencia) */}
+                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 pt-0.5">
+                        <span>Global s/Total Horas Gerencia:</span>
+                        <span>
+                          Inicial <strong>{g.initialPct}%</strong> → Proyectado <strong className="text-slate-900 font-bold">{g.projectedPct}%</strong> (+{g.deltaPct}%)
+                        </span>
                       </div>
                     </div>
 
@@ -2508,7 +2607,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                                               </span>
                                               {act.gerenciaInitialPct !== undefined && (
                                                 <span className="text-[10px] text-slate-500 font-mono mt-0.5">
-                                                  Base: <strong className={act.gerenciaInitialPct < levelingTargetPct ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold'}>{act.gerenciaInitialPct}%</strong> auto
+                                                  Avance Base: <strong className={act.gerenciaInitialPct < levelingTargetPct ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold'}>{act.gerenciaInitialPct}%</strong> auto
                                                 </span>
                                               )}
                                             </div>
@@ -3289,7 +3388,7 @@ export function WorkPlanSimulationSheet({ records, allGerencias }: WorkPlanSimul
                           </span>
                           {act.gerenciaInitialPct !== undefined && (
                             <span className="text-[10px] text-slate-500 font-mono mt-0.5">
-                              Base: <strong className={act.gerenciaInitialPct < levelingTargetPct ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold'}>{act.gerenciaInitialPct}%</strong> auto
+                              Avance Base: <strong className={act.gerenciaInitialPct < levelingTargetPct ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold'}>{act.gerenciaInitialPct}%</strong> auto
                             </span>
                           )}
                         </div>

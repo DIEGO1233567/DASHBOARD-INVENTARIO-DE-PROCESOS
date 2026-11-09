@@ -30,7 +30,9 @@ export interface PlanActivity {
   isNomina: boolean;
   isPendingDefinition?: boolean;
   gerenciaInitialPct?: number;
+  gerenciaInitialGlobalPct?: number;
   gerenciaSimPct?: number;
+  gerenciaSimGlobalPct?: number;
   levelingTier?: string;
 }
 
